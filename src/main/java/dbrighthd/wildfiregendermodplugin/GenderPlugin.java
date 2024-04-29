@@ -26,7 +26,7 @@ public final class GenderPlugin extends JavaPlugin implements PluginMessageListe
     @Override
     public void onEnable() {
         ConsoleCommandSender console = getServer().getConsoleSender();
-        console.sendMessage("1.20.4 update with contributions by @stigstille");
+        console.sendMessage("1.20.5 update with contributions by @stigstille");
         this.getServer().getMessenger().registerIncomingPluginChannel(this, genderInfo, this);
         this.getServer().getMessenger().registerOutgoingPluginChannel(this, genderSync);
         this.getServer().getMessenger().registerIncomingPluginChannel(this, forgeChannel, this);
@@ -42,18 +42,18 @@ public final class GenderPlugin extends JavaPlugin implements PluginMessageListe
 
     @Override
     public void onPluginMessageReceived(String channel, Player player, byte[] message) {
-        System.out.println("i got a message from " + player.getDisplayName());
+        System.out.println("i got a message from " + player.getName());
         if (channel.equals(genderInfo) || channel.equals(forgeChannel)) {
-            System.out.println("channel verified for " + player.getDisplayName());
+            System.out.println("channel verified for " + player.getName());
             FriendlyByteBuf buffer = new FriendlyByteBuf(Unpooled.copiedBuffer(message));
             if(channel.equals(forgeChannel))
             {
-                System.out.println("confirmed forge for " + player.getDisplayName());
+                System.out.println("confirmed forge for " + player.getName());
                 buffer.readByte();
             }
             UUID uuid = buffer.readUUID();
             GenderData.Gender gender = buffer.readEnum(GenderData.Gender.class);
-            System.out.println("confirmed gender for  " + player.getDisplayName() + gender);
+            System.out.println("confirmed gender for  " + player.getName() + gender);
             storePlayer(buffer, uuid, gender);
         }
         for(Map.Entry<UUID, GenderData.Gender> entry : playerGenderList.entrySet())
