@@ -2,8 +2,8 @@ package dbrighthd.wildfiregendermodplugin;
 
 import dbrighthd.wildfiregendermodplugin.gender.GenderData;
 import dbrighthd.wildfiregendermodplugin.utilities.Constants;
-import dbrighthd.wildfiregendermodplugin.utilities.MCProtoBuf;
-import io.netty.buffer.Unpooled;
+import dbrighthd.wildfiregendermodplugin.utilities.MCDecoder;
+import dbrighthd.wildfiregendermodplugin.utilities.MCEncoder;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -14,6 +14,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -23,7 +24,7 @@ public class GenderPlugin extends JavaPlugin implements PluginMessageListener, L
 
     @Override
     public void onEnable() {
-        getLogger().info("1.20.6 update with contributions by @stigstille and @winnpixie");
+        getLogger().info("1.21.1 update with contributions by @stigstille and @winnpixie");
 
         // Handle syncing for new joins, and removing unused data from non-present players.
         this.getServer().getPluginManager().registerEvents(this, this);
@@ -51,13 +52,18 @@ public class GenderPlugin extends JavaPlugin implements PluginMessageListener, L
         if (channel.equals(Constants.SEND_GENDER_INFO) || channel.equals(Constants.FORGE)) {
             getLogger().info("Channel verified for %s".formatted(playerName));
 
-            MCProtoBuf buffer = new MCProtoBuf(Unpooled.copiedBuffer(message));
+            MCDecoder decoder = new MCDecoder(message);
             if (channel.equals(Constants.FORGE)) {
                 getLogger().info("%s is using Forge".formatted(playerName));
-                buffer.realBuffer().readByte();
+
+                try {
+                    decoder.getReader().readByte();
+                } catch (IOException ex) {
+                    throw new RuntimeException(ex);
+                }
             }
 
-            GenderData data = GenderData.decode(buffer);
+            GenderData data = GenderData.decode(decoder);
             data.shouldSync = true;
             genderDataMap.put(data.uuid, data);
 
@@ -65,23 +71,24 @@ public class GenderPlugin extends JavaPlugin implements PluginMessageListener, L
         }
 
         // Sync NEW/MODIFIED gender data to ALL online players.
-        for (GenderData data : genderDataMap.values()) {
-            if (!data.shouldSync) continue;
+        genderDataMap.forEach((uuid, data) -> {
+            MCEncoder encoder = new MCEncoder();
+            data.encode(encoder);
 
-            data.shouldSync = false;
-            MCProtoBuf buffer = new MCProtoBuf(Unpooled.buffer());
-            MCProtoBuf forgeBuffer = new MCProtoBuf(Unpooled.buffer());
-            forgeBuffer.realBuffer().writeByte(1);
-
-            data.encode(buffer);
-            data.encode(forgeBuffer);
+            MCEncoder forgeEncoder = new MCEncoder();
+            try {
+                forgeEncoder.getWriter().writeByte(1);
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+            data.encode(forgeEncoder);
 
             getLogger().info("Sending gender data from %s(%s) to ALL".formatted(data.uuid, data.gender.name()));
             for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
-                onlinePlayer.sendPluginMessage(this, Constants.SYNC, buffer.realBuffer().array());
-                onlinePlayer.sendPluginMessage(this, Constants.FORGE, forgeBuffer.realBuffer().array());
+                syncPlayer(onlinePlayer, Constants.SYNC, encoder);
+                syncPlayer(onlinePlayer, Constants.FORGE, forgeEncoder);
             }
-        }
+        });
     }
 
     @EventHandler
@@ -89,18 +96,26 @@ public class GenderPlugin extends JavaPlugin implements PluginMessageListener, L
         Player player = event.getPlayer();
 
         // Send ALL existing gender data to a player who has joined. !! IGNORES SYNC STATUS !!
-        for (GenderData data : genderDataMap.values()) {
-            MCProtoBuf buffer = new MCProtoBuf(Unpooled.buffer());
-            MCProtoBuf forgeBuffer = new MCProtoBuf(Unpooled.buffer());
-            forgeBuffer.realBuffer().writeByte(1);
+        genderDataMap.forEach((uuid, data) -> {
+            MCEncoder encoder = new MCEncoder();
+            data.encode(encoder);
 
-            data.encode(buffer);
-            data.encode(forgeBuffer);
+            MCEncoder forgeEncoder = new MCEncoder();
+            try {
+                forgeEncoder.getWriter().writeByte(1);
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+            data.encode(forgeEncoder);
 
-            getLogger().info("Sending gender data from %s(%s) to %s".formatted(data.uuid, data.gender.name(), player.getName()));
-            player.sendPluginMessage(this, Constants.SYNC, buffer.realBuffer().array());
-            player.sendPluginMessage(this, Constants.FORGE, forgeBuffer.realBuffer().array());
-        }
+            getLogger().info("Sending gender data from %s(%s) to %s".formatted(uuid, data.gender.name(), player.getName()));
+            syncPlayer(player, Constants.SYNC, encoder);
+            syncPlayer(player, Constants.FORGE, forgeEncoder);
+        });
+    }
+
+    private void syncPlayer(Player player, String channel, MCEncoder encoder) {
+        player.sendPluginMessage(this, channel, encoder.getBytes());
     }
 
     @EventHandler
