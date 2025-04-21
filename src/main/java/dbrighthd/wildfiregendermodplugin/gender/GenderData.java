@@ -25,74 +25,70 @@ import java.io.IOException;
 import java.util.UUID;
 
 public class GenderData {
-    public boolean shouldSync = false; // FIXME: Currently causes issue where new players receive incorrect data.
+    public boolean needsSync = false;
 
     public UUID uuid;
     public Gender gender;
 
     public float bustSize;
     public boolean hurtSounds;
+    public float voicePitch;
 
-    // Physics variables
+    // Breast physics variables
     public boolean breastPhysics;
     public boolean showInArmor;
     public float bounceMultiplier;
     public float floppyMultiplier;
 
+    // Breast variables
     public float xOffset;
     public float yOffset;
     public float zOffset;
     public boolean uniboob;
     public float cleavage;
 
-    public void encode(MCEncoder encoder) {
+    public void encode(MCEncoder encoder) throws IOException {
         encoder.writeUUID(this.uuid);
         encoder.writeEnum(this.gender);
 
-        try {
-            encoder.getWriter().writeFloat(this.bustSize);
-            encoder.getWriter().writeBoolean(this.hurtSounds);
-            encoder.getWriter().writeBoolean(this.breastPhysics);
-            encoder.getWriter().writeBoolean(this.showInArmor);
-            encoder.getWriter().writeFloat(this.bounceMultiplier);
-            encoder.getWriter().writeFloat(this.floppyMultiplier);
+        encoder.getWriter().writeFloat(this.bustSize);
+        encoder.getWriter().writeBoolean(this.hurtSounds);
+        encoder.getWriter().writeFloat(this.voicePitch);
+        encoder.getWriter().writeBoolean(this.breastPhysics);
+        encoder.getWriter().writeBoolean(this.showInArmor);
+        encoder.getWriter().writeFloat(this.bounceMultiplier);
+        encoder.getWriter().writeFloat(this.floppyMultiplier);
 
-            encoder.getWriter().writeFloat(this.xOffset);
-            encoder.getWriter().writeFloat(this.yOffset);
-            encoder.getWriter().writeFloat(this.zOffset);
-            encoder.getWriter().writeBoolean(this.uniboob);
-            encoder.getWriter().writeFloat(this.cleavage);
+        encoder.getWriter().writeFloat(this.xOffset);
+        encoder.getWriter().writeFloat(this.yOffset);
+        encoder.getWriter().writeFloat(this.zOffset);
+        encoder.getWriter().writeBoolean(this.uniboob);
+        encoder.getWriter().writeFloat(this.cleavage);
 
-            encoder.finish();
-        } catch (IOException ex) {
-            throw new RuntimeException(ex);
-        }
+        encoder.finish();
     }
 
-    public static GenderData decode(MCDecoder decoder) {
+    public static GenderData decode(MCDecoder decoder) throws IOException {
         GenderData data = new GenderData();
 
-        try {
-            data.uuid = decoder.readUUID();
-            data.gender = decoder.readEnum(Gender.class);
+        data.uuid = decoder.readUUID();
+        data.gender = decoder.readEnum(Gender.class);
 
-            data.bustSize = decoder.getReader().readFloat();
-            data.hurtSounds = decoder.getReader().readBoolean();
-            data.breastPhysics = decoder.getReader().readBoolean();
-            data.showInArmor = decoder.getReader().readBoolean();
-            data.bounceMultiplier = decoder.getReader().readFloat();
-            data.floppyMultiplier = decoder.getReader().readFloat();
+        data.bustSize = decoder.getReader().readFloat();
+        data.hurtSounds = decoder.getReader().readBoolean();
+        data.voicePitch = decoder.getReader().readFloat();
+        data.breastPhysics = decoder.getReader().readBoolean();
+        data.showInArmor = decoder.getReader().readBoolean();
+        data.bounceMultiplier = decoder.getReader().readFloat();
+        data.floppyMultiplier = decoder.getReader().readFloat();
 
-            data.xOffset = decoder.getReader().readFloat();
-            data.yOffset = decoder.getReader().readFloat();
-            data.zOffset = decoder.getReader().readFloat();
-            data.uniboob = decoder.getReader().readBoolean();
-            data.cleavage = decoder.getReader().readFloat();
+        data.xOffset = decoder.getReader().readFloat();
+        data.yOffset = decoder.getReader().readFloat();
+        data.zOffset = decoder.getReader().readFloat();
+        data.uniboob = decoder.getReader().readBoolean();
+        data.cleavage = decoder.getReader().readFloat();
 
-            decoder.finish();
-        } catch (IOException ex) {
-            throw new RuntimeException(ex);
-        }
+        decoder.finish();
 
         return data;
     }

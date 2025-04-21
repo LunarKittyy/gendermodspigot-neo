@@ -7,9 +7,9 @@ import java.util.UUID;
 
 /**
  * <p>Methods to decode data sent by the client.</p>
- * <p>Methods shamelessly stolen from <a href="https://wiki.vg/Data_types">https://wiki.v/Data_types</a>.</p>
+ * <p>Methods shamelessly stolen from <a href="https://wiki.vg/Data_types">https://wiki.vg/Data_types</a>.</p>
  *
- * @author Hannah (<a href="https://github.com/winnpixie/">winnpixie</a> on GitHub)
+ * @author <a href="https://github.com/winnpixie/">winnpixie</a>
  */
 public class MCDecoder {
     private static final int SEGMENT_BITS = 0x7F;
@@ -31,68 +31,52 @@ public class MCDecoder {
         return reader;
     }
 
-    public void finish() {
-        try {
-            reader.close();
-        } catch (IOException ex) {
-            throw new RuntimeException(ex);
-        }
+    public void finish() throws IOException {
+        reader.close();
     }
 
-    public int readVarInt() {
+    public int readVarInt() throws IOException {
         int value = 0;
         int position = 0;
         byte currentByte;
 
-        try {
-            while (true) {
-                currentByte = reader.readByte();
+        while (true) {
+            currentByte = reader.readByte();
 
-                value |= (currentByte & SEGMENT_BITS) << position;
+            value |= (currentByte & SEGMENT_BITS) << position;
 
-                if ((currentByte & CONTINUE_BIT) == 0) break;
+            if ((currentByte & CONTINUE_BIT) == 0) break;
 
-                position += 7;
-                if (position >= 32) throw new RuntimeException("VarInt is too big");
-            }
-        } catch (IOException ex) {
-            throw new RuntimeException(ex);
+            position += 7;
+            if (position >= 32) throw new IOException("VarInt is too big");
         }
 
         return value;
     }
 
-    public long readVarLong() {
+    public long readVarLong() throws IOException {
         long value = 0;
         int position = 0;
         byte currentByte;
 
-        try {
-            while (true) {
-                currentByte = reader.readByte();
-                value |= (long) (currentByte & SEGMENT_BITS) << position;
+        while (true) {
+            currentByte = reader.readByte();
+            value |= (long) (currentByte & SEGMENT_BITS) << position;
 
-                if ((currentByte & CONTINUE_BIT) == 0) break;
+            if ((currentByte & CONTINUE_BIT) == 0) break;
 
-                position += 7;
-                if (position >= 64) throw new RuntimeException("VarLong is too big");
-            }
-        } catch (IOException ex) {
-            throw new RuntimeException(ex);
+            position += 7;
+            if (position >= 64) throw new IOException("VarLong is too big");
         }
 
         return value;
     }
 
-    public UUID readUUID() {
-        try {
-            return new UUID(reader.readLong(), reader.readLong());
-        } catch (IOException ex) {
-            throw new RuntimeException(ex);
-        }
+    public UUID readUUID() throws IOException {
+        return new UUID(reader.readLong(), reader.readLong());
     }
 
-    public <T extends Enum<T>> T readEnum(Class<T> enumCls) {
+    public <T extends Enum<T>> T readEnum(Class<T> enumCls) throws IOException {
         return enumCls.getEnumConstants()[readVarInt()];
     }
 }
