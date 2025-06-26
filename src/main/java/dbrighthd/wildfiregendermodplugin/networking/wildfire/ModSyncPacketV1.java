@@ -2,7 +2,7 @@ package dbrighthd.wildfiregendermodplugin.networking.wildfire;
 
 import dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftInputStream;
 import dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream;
-import dbrighthd.wildfiregendermodplugin.wildfire.ModConfiguration;
+import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
 
 import java.io.IOException;
 
@@ -21,11 +21,12 @@ public class ModSyncPacketV1 implements ModSyncPacket { // TODO: Find and implem
     }
 
     @Override
-    public ModConfiguration read(CraftInputStream input) throws IOException {
-        return null;
+    public ModUser read(CraftInputStream input) throws IOException {
+        throw new UnsupportedOperationException("Not implemented!");
     }
 
     @Override
-    public void write(ModConfiguration modConfiguration, CraftOutputStream output) throws IOException {
+    public void write(ModUser user, CraftOutputStream output) throws IOException {
+        throw new UnsupportedOperationException("Not implemented!");
     }
 }

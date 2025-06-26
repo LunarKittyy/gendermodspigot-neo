@@ -25,4 +25,7 @@ public final class ModConstants {
      * Payload channel used the server to send mod users others' bodily configurations.
      */
     public static final String SYNC = MOD_ID + ":sync";
+
+    private ModConstants() {
+    }
 }

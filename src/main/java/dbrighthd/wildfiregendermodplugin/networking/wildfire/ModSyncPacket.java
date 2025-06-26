@@ -2,7 +2,7 @@ package dbrighthd.wildfiregendermodplugin.networking.wildfire;
 
 import dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftInputStream;
 import dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream;
-import dbrighthd.wildfiregendermodplugin.wildfire.ModConfiguration;
+import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
 
 import java.io.IOException;
 
@@ -27,20 +27,20 @@ public interface ModSyncPacket {
     String getModRange();
 
     /**
-     * Decodes data from a {@link CraftInputStream} to create a {@link ModConfiguration}
+     * Decodes data from a {@link CraftInputStream} to create a {@link ModUser}
      *
      * @param input The input stream to read data from.
-     * @return the {@link ModConfiguration} value read.
+     * @return the {@link ModUser} value read.
      * @throws IOException if an I/O error occurs in the supplied {@link CraftInputStream}
      */
-    ModConfiguration read(CraftInputStream input) throws IOException;
+    ModUser read(CraftInputStream input) throws IOException;
 
     /**
-     * Encodes modConfiguration from a {@link ModConfiguration} with a {@link CraftOutputStream}
+     * Encodes modConfiguration from a {@link ModUser} with a {@link CraftOutputStream}
      *
-     * @param modConfiguration The {@link ModConfiguration} to send over the network.
-     * @param output           The output stream to write {@code modConfiguration} to.
+     * @param user   The {@link ModUser} to send over the network.
+     * @param output The output stream to write {@code modConfiguration} to.
      * @throws IOException if an I/O error occurs in the supplied {@link CraftOutputStream}
      */
-    void write(ModConfiguration modConfiguration, CraftOutputStream output) throws IOException;
+    void write(ModUser user, CraftOutputStream output) throws IOException;
 }

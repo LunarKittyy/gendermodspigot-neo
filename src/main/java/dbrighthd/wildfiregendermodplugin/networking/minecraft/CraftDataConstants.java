@@ -17,4 +17,7 @@ public final class CraftDataConstants {
      * For use with variable-length numbers. Indicates the next bit is part of this number.
      */
     public static final int CONTINUE_BIT = 0x80;
+
+    private CraftDataConstants() {
+    }
 }

@@ -2,11 +2,11 @@ package dbrighthd.wildfiregendermodplugin.networking.wildfire;
 
 import dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftInputStream;
 import dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream;
-import dbrighthd.wildfiregendermodplugin.wildfire.Gender;
-import dbrighthd.wildfiregendermodplugin.wildfire.ModConfiguration;
-import dbrighthd.wildfiregendermodplugin.wildfire.ModConfigurationBuilder;
+import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
+import dbrighthd.wildfiregendermodplugin.wildfire.setup.*;
 
 import java.io.IOException;
+import java.util.UUID;
 
 /**
  * @author winnpixie
@@ -23,42 +23,53 @@ public class ModSyncPacketV4 implements ModSyncPacket {
     }
 
     @Override
-    public ModConfiguration read(CraftInputStream input) throws IOException {
-        return new ModConfigurationBuilder()
-                .setUserId(input.readUUID())
-                .setGender(input.readEnum(Gender.class))
-                .setBustSize(input.readFloat())
-                .setHurtSounds(input.readBoolean())
-                .setVoicePitch(input.readFloat())
-                .setBreastPhysics(input.readBoolean())
-                .setShowInArmor(input.readBoolean())
-                .setBuoyancy(input.readFloat())
-                .setFloppiness(input.readFloat())
-                .setXOffset(input.readFloat())
-                .setYOffset(input.readFloat())
-                .setZOffset(input.readFloat())
-                .setUniBoob(input.readBoolean())
-                .setCleavage(input.readFloat())
-                .create();
+    public ModUser read(CraftInputStream input) throws IOException {
+        GeneralOptions.Builder generalBuilder = new GeneralOptions.Builder();
+        PhysicsOptions.Builder physicsBuilder = new PhysicsOptions.Builder();
+        BreastOptions.Builder breastBuilder = new BreastOptions.Builder();
+
+        UUID userId = input.readUUID();
+        generalBuilder.setGenderIdentity(input.readEnum(GenderIdentities.class));
+        breastBuilder.setBustSize(input.readFloat());
+        generalBuilder.setHurtSounds(input.readBoolean());
+        generalBuilder.setVoicePitch(input.readFloat());
+        physicsBuilder.setBreastPhysics(input.readBoolean());
+        generalBuilder.setShowInArmor(input.readBoolean());
+        physicsBuilder.setBuoyancy(input.readFloat());
+        physicsBuilder.setFloppiness(input.readFloat());
+        breastBuilder.setXOffset(input.readFloat());
+        breastBuilder.setYOffset(input.readFloat());
+        breastBuilder.setZOffset(input.readFloat());
+        breastBuilder.setUniBoob(input.readBoolean());
+        breastBuilder.setCleavage(input.readFloat());
+
+        return new ModUser(userId, new ModConfiguration(
+                generalBuilder.create(),
+                physicsBuilder.create(),
+                breastBuilder.create()
+        ));
     }
 
     @Override
-    public void write(ModConfiguration modConfiguration, CraftOutputStream output) throws IOException {
-        output.writeUUID(modConfiguration.getUserId());
-        output.writeEnum(modConfiguration.getGender());
+    public void write(ModUser user, CraftOutputStream output) throws IOException {
+        ModConfiguration configuration = user.configuration();
+        GeneralOptions general = configuration.generalOptions();
+        PhysicsOptions physics = configuration.physicsOptions();
+        BreastOptions breast = configuration.breastOptions();
 
-        output.writeFloat(modConfiguration.getBustSize());
-        output.writeBoolean(modConfiguration.hasHurtSounds());
-        output.writeFloat(modConfiguration.getVoicePitch());
-        output.writeBoolean(modConfiguration.hasBreastPhysics());
-        output.writeBoolean(modConfiguration.shouldShowInArmor());
-        output.writeFloat(modConfiguration.getBuoyancy());
-        output.writeFloat(modConfiguration.getFloppiness());
-
-        output.writeFloat(modConfiguration.getXOffset());
-        output.writeFloat(modConfiguration.getYOffset());
-        output.writeFloat(modConfiguration.getZOffset());
-        output.writeBoolean(modConfiguration.isUniBoob());
-        output.writeFloat(modConfiguration.getCleavage());
+        output.writeUUID(user.userId());
+        output.writeEnum(general.genderIdentity());
+        output.writeFloat(breast.bustSize());
+        output.writeBoolean(general.hurtSounds());
+        output.writeFloat(general.voicePitch());
+        output.writeBoolean(physics.breastPhysics());
+        output.writeBoolean(general.showInArmor());
+        output.writeFloat(physics.buoyancy());
+        output.writeFloat(physics.floppiness());
+        output.writeFloat(breast.xOffset());
+        output.writeFloat(breast.yOffset());
+        output.writeFloat(breast.zOffset());
+        output.writeBoolean(breast.uniBoob());
+        output.writeFloat(breast.cleavage());
     }
 }
