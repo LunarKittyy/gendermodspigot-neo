@@ -7,5 +7,6 @@ package dbrighthd.wildfiregendermodplugin.wildfire.setup;
  */
 public record ModConfiguration(GeneralOptions generalOptions,
                                PhysicsOptions physicsOptions,
-                               BreastOptions breastOptions) {
+                               BreastOptions breastOptions,
+                               UVLayouts uvLayouts) {
 }
