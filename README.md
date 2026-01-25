@@ -32,7 +32,8 @@ Download from Modrinth: https://modrinth.com/plugin/female-gender-spigot
 |:--------:|:-------------:|
 |    2     | 2.8.1 - 3.0.1 |
 |    3     | 3.1.0 - 4.0.0 |
-|    4     | 4.0.0 - ?.?.? |
+|    4     | 4.0.0 - 4.3.4 |
+|    5     | 5.0.0 - ?.?.? |
 
 Setting this value to -1 will try using the newest known protocol, useful so you don't need to change this manually
 every time you update the mod and plugin.

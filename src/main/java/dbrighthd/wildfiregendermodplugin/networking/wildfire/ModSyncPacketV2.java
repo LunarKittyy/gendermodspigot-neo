@@ -46,7 +46,8 @@ public class ModSyncPacketV2 implements ModSyncPacket {
         return new ModUser(userId, new ModConfiguration(
                 generalBuilder.create(),
                 physicsBuilder.create(),
-                breastBuilder.create()
+                breastBuilder.create(),
+                null
         ));
     }
 

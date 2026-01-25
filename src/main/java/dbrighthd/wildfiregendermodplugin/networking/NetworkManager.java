@@ -28,7 +28,8 @@ public class NetworkManager {
                 1, new ModSyncPacketV1(),
                 2, new ModSyncPacketV2(),
                 3, new ModSyncPacketV3(),
-                4, new ModSyncPacketV4()
+                4, new ModSyncPacketV4(),
+                5, new ModSyncPacketV5()
         );
     }
 
@@ -38,7 +39,7 @@ public class NetworkManager {
 
     public boolean init() {
         int protocolVersion = plugin.getConfig().getInt("mod.protocol", -1);
-        packetFormat = protocolVersion == -1 ? PACKET_FORMATS.get(4)
+        packetFormat = protocolVersion == -1 ? PACKET_FORMATS.get(5)
                 : PACKET_FORMATS.get(protocolVersion);
         if (packetFormat == null) return false;
 
