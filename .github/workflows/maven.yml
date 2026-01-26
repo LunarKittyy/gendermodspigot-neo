@@ -2,9 +2,9 @@ name: Java CI with Maven
 
 on:
   push:
-    branches: ["main", "protocol-v5-port"]
+    branches: ["main", "master", "protocol-v5-port"]
   pull_request:
-    branches: ["main", "protocol-v5-port"]
+    branches: ["main", "master", "protocol-v5-port"]
 
 jobs:
   build:
