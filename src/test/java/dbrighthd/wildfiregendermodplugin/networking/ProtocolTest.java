@@ -1,8 +1,10 @@
 package dbrighthd.wildfiregendermodplugin.networking;
 
 import dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftInputStream;
+import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV4;
 import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV5;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
+import dbrighthd.wildfiregendermodplugin.wildfire.UserManager;
 import dbrighthd.wildfiregendermodplugin.wildfire.setup.GenderIdentities;
 import org.junit.jupiter.api.Test;
 
@@ -123,5 +125,75 @@ public class ProtocolTest {
                 assertEquals(2, quad.y1());
                 assertEquals(3, quad.x2());
                 assertEquals(4, quad.y2());
+        }
+
+        @Test
+        public void testUserManagerProtocolTracking() {
+                UserManager userManager = new UserManager();
+                UUID uuid = UUID.randomUUID();
+
+                assertEquals(-1, userManager.getProtocolVersion(uuid));
+                userManager.setProtocolVersion(uuid, 5);
+                assertEquals(5, userManager.getProtocolVersion(uuid));
+                userManager.removePlayer(uuid);
+                assertEquals(-1, userManager.getProtocolVersion(uuid));
+        }
+
+        @Test
+        public void testV4RoundTrip() throws IOException {
+                dbrighthd.wildfiregendermodplugin.wildfire.setup.ModConfiguration config = new dbrighthd.wildfiregendermodplugin.wildfire.setup.ModConfiguration(
+                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.GeneralOptions(
+                                                GenderIdentities.FEMALE, true, 1.0f,
+                                                true),
+                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.PhysicsOptions(true, true, 1.0f,
+                                                1.0f),
+                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.BreastOptions(0.5f, 0.0f, 0.0f,
+                                                0.0f, false, 0.0f),
+                                null);
+
+                UUID userId = UUID.randomUUID();
+                ModUser user = new ModUser(userId, config);
+                ModSyncPacketV4 packet = new ModSyncPacketV4();
+
+                byte[] serialized;
+                try (java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+                                dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream out = new dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream(
+                                                bytes)) {
+                        packet.write(user, out);
+                        serialized = bytes.toByteArray();
+                }
+
+                ModUser deserialized;
+                try (CraftInputStream in = CraftInputStream.ofBytes(serialized)) {
+                        deserialized = packet.read(in);
+                }
+
+                assertEquals(userId, deserialized.userId());
+                assertEquals(GenderIdentities.FEMALE, deserialized.configuration().generalOptions().genderIdentity());
+                // UV Layouts should be null in V4
+                assertNull(deserialized.configuration().uvLayouts());
+        }
+
+        @Test
+        public void testDefaultProtocolDetection() {
+                assertEquals(5, NetworkManager.detectDefaultProtocol("1.21.9-R0.1-SNAPSHOT"));
+                assertEquals(5, NetworkManager.detectDefaultProtocol("1.22.0"));
+                assertEquals(4, NetworkManager.detectDefaultProtocol("1.21.2"));
+                assertEquals(4, NetworkManager.detectDefaultProtocol("1.21.5"));
+                assertEquals(3, NetworkManager.detectDefaultProtocol("1.20.2"));
+                assertEquals(3, NetworkManager.detectDefaultProtocol("1.20.4"));
+                assertEquals(2, NetworkManager.detectDefaultProtocol("1.18.1"));
+                assertEquals(2, NetworkManager.detectDefaultProtocol("1.19.4"));
+                assertEquals(2, NetworkManager.detectDefaultProtocol("invalid"));
+        }
+
+        @Test
+        public void testLengthBasedDetection() {
+                assertEquals(2, NetworkManager.detectProtocolFromLength(36));
+                assertEquals(3, NetworkManager.detectProtocolFromLength(49));
+                assertEquals(4, NetworkManager.detectProtocolFromLength(70));
+                assertEquals(5, NetworkManager.detectProtocolFromLength(71));
+                assertEquals(5, NetworkManager.detectProtocolFromLength(100));
+                assertEquals(-1, NetworkManager.detectProtocolFromLength(10));
         }
 }

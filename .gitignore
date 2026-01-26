@@ -114,3 +114,7 @@ buildNumber.properties
 
 # Common working directory
 run/
+
+# Testing and reference
+TESTING/
+female_gender_mod_versions_reference.csv

@@ -21,10 +21,12 @@ public class ModPayloadListener implements PluginMessageListener {
 
     @Override
     public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, byte[] message) {
-        if (!channel.equals(ModConstants.SEND_GENDER_INFO) && !channel.equals(ModConstants.FORGE)) return;
+        if (!channel.equals(ModConstants.SEND_GENDER_INFO) && !channel.equals(ModConstants.FORGE))
+            return;
 
-        ModUser user = plugin.getNetworkManager().deserializeUser(message, channel.equals(ModConstants.FORGE));
-        if (user == null) return;
+        ModUser user = plugin.getNetworkManager().deserializeUser(message, channel.equals(ModConstants.FORGE), player);
+        if (user == null)
+            return;
 
         if (!player.getUniqueId().equals(user.userId())) {
             plugin.getCustomLogger().warning("Unauthorized access attempt by %s for %s",
