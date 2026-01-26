@@ -1,6 +1,8 @@
 package dbrighthd.wildfiregendermodplugin;
 
+import dbrighthd.wildfiregendermodplugin.commands.DiagnosticCommand;
 import dbrighthd.wildfiregendermodplugin.listeners.ConnectionListener;
+import dbrighthd.wildfiregendermodplugin.listeners.HelloPacketListener;
 import dbrighthd.wildfiregendermodplugin.listeners.ModPayloadListener;
 import dbrighthd.wildfiregendermodplugin.logging.CustomPluginLogger;
 import dbrighthd.wildfiregendermodplugin.networking.NetworkManager;
@@ -31,6 +33,10 @@ public final class GenderModPlugin extends JavaPlugin {
 
         registerEventListeners();
         registerModListeners();
+
+        DiagnosticCommand diagCmd = new DiagnosticCommand(this);
+        getCommand("wildfire").setExecutor(diagCmd);
+        getCommand("wildfire").setTabCompleter(diagCmd);
     }
 
     @Override
@@ -65,5 +71,10 @@ public final class GenderModPlugin extends JavaPlugin {
         // Forge
         getServer().getMessenger().registerIncomingPluginChannel(this, ModConstants.FORGE, payloadListener);
         getServer().getMessenger().registerOutgoingPluginChannel(this, ModConstants.FORGE);
+
+        // Hello handshake (5.0.0+)
+        HelloPacketListener helloListener = new HelloPacketListener(this);
+        getServer().getMessenger().registerIncomingPluginChannel(this, ModConstants.HELLO_SERVERBOUND, helloListener);
+        getServer().getMessenger().registerOutgoingPluginChannel(this, ModConstants.HELLO_CLIENTBOUND);
     }
 }

@@ -41,6 +41,6 @@ public class ConnectionListener implements Listener {
         plugin.getCustomLogger().debug("Removing %s", player.getName());
 
         // Remove configuration for a player who is no longer online.
-        plugin.getUserManager().getUsers().remove(uuid);
+        plugin.getUserManager().removePlayer(uuid);
     }
 }

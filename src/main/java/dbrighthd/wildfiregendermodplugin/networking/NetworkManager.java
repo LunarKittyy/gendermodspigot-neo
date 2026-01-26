@@ -11,7 +11,9 @@ import org.bukkit.entity.Player;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * @author winnpixie
@@ -29,8 +31,7 @@ public class NetworkManager {
                 2, new ModSyncPacketV2(),
                 3, new ModSyncPacketV3(),
                 4, new ModSyncPacketV4(),
-                5, new ModSyncPacketV5()
-        );
+                5, new ModSyncPacketV5());
     }
 
     public NetworkManager(GenderModPlugin plugin) {
@@ -39,55 +40,179 @@ public class NetworkManager {
 
     public boolean init() {
         int protocolVersion = plugin.getConfig().getInt("mod.protocol", -1);
-        packetFormat = protocolVersion == -1 ? PACKET_FORMATS.get(5)
-                : PACKET_FORMATS.get(protocolVersion);
-        if (packetFormat == null) return false;
+        if (protocolVersion == -1) {
+            protocolVersion = detectDefaultProtocol();
+        }
 
-        plugin.getCustomLogger().info("Using protocol %d for mod version(s) %s",
+        packetFormat = PACKET_FORMATS.get(protocolVersion);
+        if (packetFormat == null)
+            return false;
+
+        plugin.getCustomLogger().info("Using default protocol %d for mod version(s) %s",
                 packetFormat.getVersion(), packetFormat.getModRange());
 
         return true;
     }
 
+    private int detectDefaultProtocol() {
+        return detectDefaultProtocol(plugin.getServer().getBukkitVersion());
+    }
+
+    static int detectDefaultProtocol(String version) {
+        try {
+            String versionStr = version.split("-")[0];
+            String[] parts = versionStr.split("\\.");
+            int major = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
+            int patch = parts.length > 2 ? Integer.parseInt(parts[2]) : 0;
+
+            if (major > 21 || (major == 21 && patch >= 9))
+                return 5;
+            if (major == 21 && patch >= 2)
+                return 4;
+            if (major == 20 && patch >= 2)
+                return 3;
+            if (major >= 18)
+                return 2;
+        } catch (Exception ignored) {
+        }
+        return 2;
+    }
+
+    static int detectProtocolFromLength(int length) {
+        if (length == 36)
+            return 2;
+        if (length == 49)
+            return 3;
+        if (length == 70)
+            return 4;
+        if (length > 70)
+            return 5;
+        return -1;
+    }
+
     public void sync(Collection<? extends Player> audience) {
-        for (ModUser user : plugin.getUserManager().getUsers().values()) {
-            byte[] fabricData = serializeUser(user, false);
-            byte[] forgeData = serializeUser(user, true);
+        for (ModUser userToSync : plugin.getUserManager().getUsers().values()) {
+            Map<Integer, byte[]> fabricCache = new HashMap<>();
+            Map<Integer, byte[]> forgeCache = new HashMap<>();
 
             for (Player recipient : audience) {
-                if (fabricData.length > 0) sendData(recipient, ModConstants.SYNC, fabricData);
-                if (forgeData.length > 0) sendData(recipient, ModConstants.FORGE, forgeData);
+                ModSyncPacket format = getPacketFormatForPlayer(recipient.getUniqueId());
+                int version = format.getVersion();
+
+                byte[] fabricData = fabricCache.computeIfAbsent(version, v -> serializeUser(userToSync, false, format));
+                byte[] forgeData = forgeCache.computeIfAbsent(version, v -> serializeUser(userToSync, true, format));
+
+                if (fabricData != null && fabricData.length > 0)
+                    sendData(recipient, ModConstants.SYNC, fabricData);
+                if (forgeData != null && forgeData.length > 0)
+                    sendData(recipient, ModConstants.FORGE, forgeData);
             }
         }
     }
 
-    public ModUser deserializeUser(byte[] data, boolean forge) {
-        try (CraftInputStream input = CraftInputStream.ofBytes(data)) {
-            if (forge) input.readByte();
+    public ModSyncPacket getPacketFormatForPlayer(UUID playerId) {
+        int version = plugin.getUserManager().getProtocolVersion(playerId);
+        if (version == -1) {
+            return packetFormat; // Default from config
+        }
 
-            return packetFormat.read(input);
+        ModSyncPacket format = PACKET_FORMATS.get(version);
+        if (format == null) {
+            plugin.getCustomLogger().warning("Unsupported protocol version %d for %s, falling back to version %d",
+                    version, playerId, packetFormat.getVersion());
+            return packetFormat;
+        }
+
+        return format;
+    }
+
+    public ModUser deserializeUser(byte[] data, boolean forge, Player sender) {
+        if (plugin.getCustomLogger().isVerbose()) {
+            plugin.getCustomLogger().debug("Incoming payload [%s] -> %s",
+                    forge ? ModConstants.FORGE : ModConstants.SEND_GENDER_INFO,
+                    plugin.getCustomLogger().hexDump(data));
+        }
+
+        ModSyncPacket format = getPacketFormatForPlayer(sender.getUniqueId());
+
+        // Dynamic detection if version is unknown
+        if (plugin.getUserManager().getProtocolVersion(sender.getUniqueId()) == -1) {
+            int len = data.length;
+            if (forge)
+                len--; // Subtract forge prefix byte
+
+            int detectedVersion = detectProtocolFromLength(len);
+
+            if (detectedVersion != -1) {
+                plugin.getUserManager().setProtocolVersion(sender.getUniqueId(), detectedVersion);
+                format = PACKET_FORMATS.get(detectedVersion);
+                plugin.getCustomLogger().info("Auto-detected protocol V%d for %s (packet length: %d)",
+                        detectedVersion, sender.getName(), len);
+            }
+        }
+        try (CraftInputStream input = CraftInputStream.ofBytes(data)) {
+            if (forge)
+                input.readByte();
+
+            ModUser user = format.read(input);
+            if (user != null) {
+                plugin.getCustomLogger().debug("Successfully deserialized user %s (forge=%s, protocol=%d)",
+                        user.userId(), forge, format.getVersion());
+            }
+            return user;
         } catch (IOException ex) {
-            plugin.getCustomLogger().warning(ex, "Could not deserialize user (forge=%s)", forge);
+            plugin.getCustomLogger().debug("Data malformed during deserialization (forge=%s, protocol=%d)",
+                    forge, format.getVersion());
+            plugin.getCustomLogger().warning(ex, "Could not deserialize user (forge=%s, protocol=%d)",
+                    forge, format.getVersion());
         }
 
         return null;
     }
 
-    private byte[] serializeUser(ModUser user, boolean forge) {
+    private byte[] serializeUser(ModUser user, boolean forge, ModSyncPacket format) {
         try (ByteArrayOutputStream payload = new ByteArrayOutputStream();
-             CraftOutputStream output = new CraftOutputStream(payload)) {
-            if (forge) output.writeByte(1);
+                CraftOutputStream output = new CraftOutputStream(payload)) {
+            if (forge)
+                output.writeByte(1);
 
-            packetFormat.write(user, output);
+            format.write(user, output);
             return payload.toByteArray();
         } catch (IOException ex) {
-            plugin.getCustomLogger().warning(ex, "Could not serialize user (forge=%s)", forge);
+            plugin.getCustomLogger().warning(ex, "Could not serialize user (forge=%s, protocol=%d)",
+                    forge, format.getVersion());
         }
 
         return new byte[0];
     }
 
     private void sendData(Player target, String channel, byte[] data) {
+        if (plugin.getCustomLogger().isVerbose()) {
+            plugin.getCustomLogger().debug("Outgoing payload [%s] -> %s",
+                    channel, plugin.getCustomLogger().hexDump(data));
+        }
         target.sendPluginMessage(plugin, channel, data);
+    }
+
+    /**
+     * Sends a dummy sync packet for a fake UUID to a player.
+     * Useful for verifying that the client mod is receiving and processing data.
+     */
+    public void sendTestData(Player target, UUID dummyId) {
+        ModSyncPacket format = getPacketFormatForPlayer(target.getUniqueId());
+        ModUser dummyUser = new ModUser(dummyId, plugin.getUserManager().getUsers().values().stream()
+                .findFirst().map(ModUser::configuration).orElse(null));
+
+        if (dummyUser.configuration() == null) {
+            plugin.getCustomLogger().warning("No mod users stored to use as template for test sync.");
+            return;
+        }
+
+        byte[] data = serializeUser(dummyUser, false, format);
+        if (data.length > 0) {
+            sendData(target, ModConstants.SYNC, data);
+            plugin.getCustomLogger().info("Sent dummy sync for %s to %s using protocol %d",
+                    dummyId, target.getName(), format.getVersion());
+        }
     }
 }

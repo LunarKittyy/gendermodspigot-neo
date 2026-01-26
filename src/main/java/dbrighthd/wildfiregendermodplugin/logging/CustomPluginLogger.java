@@ -10,6 +10,7 @@ public class CustomPluginLogger {
 
     private final boolean enabled;
     private final boolean debug;
+    private final boolean verbose;
 
     public CustomPluginLogger(GenderModPlugin plugin) {
         this.plugin = plugin;
@@ -17,10 +18,26 @@ public class CustomPluginLogger {
         FileConfiguration pluginConfig = plugin.getConfig();
         this.enabled = pluginConfig.getBoolean("logging.enabled", true);
         this.debug = pluginConfig.getBoolean("logging.debug", false);
+        this.verbose = pluginConfig.getBoolean("logging.verbose", false);
+    }
+
+    public boolean isVerbose() {
+        return verbose;
+    }
+
+    public String hexDump(byte[] data) {
+        if (data == null)
+            return "null";
+        StringBuilder sb = new StringBuilder();
+        for (byte b : data) {
+            sb.append(String.format("%02X ", b));
+        }
+        return sb.toString().trim();
     }
 
     public void debug(String message, Object... params) {
-        if (debug) log(Level.INFO, message, params);
+        if (debug)
+            log(Level.INFO, message, params);
     }
 
     public void info(String message, Object... params) {
@@ -36,7 +53,8 @@ public class CustomPluginLogger {
     }
 
     public void log(Level level, String message, Object... params) {
-        if (!enabled) return;
+        if (!enabled)
+            return;
 
         if (params.length == 0) {
             plugin.getLogger().log(level, message);
@@ -47,7 +65,8 @@ public class CustomPluginLogger {
     }
 
     public void debug(Throwable throwable, String message, Object... params) {
-        if (debug) thrown(Level.INFO, throwable, message, params);
+        if (debug)
+            thrown(Level.INFO, throwable, message, params);
     }
 
     public void info(Throwable throwable, String message, Object... params) {
@@ -63,7 +82,8 @@ public class CustomPluginLogger {
     }
 
     public void thrown(Level level, Throwable throwable, String message, Object... params) {
-        if (!enabled) return;
+        if (!enabled)
+            return;
 
         if (params.length == 0) {
             plugin.getLogger().log(level, message, throwable);
