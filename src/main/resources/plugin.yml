@@ -5,7 +5,8 @@ api-version: "1.20"
 authors: ["dbrighthd", "Stigstille", "winnpixie"]
 
 commands:
-  wildfire:
-    description: Diagnostic commands for Wildfire Gender Mod
+  femalegender:
+    description: Diagnostic commands for Female Gender Mod
+    aliases: [fgm]
     permission: wildfire.admin
-    usage: /wildfire <status|testsend> [player]
+    usage: /femalegender <status|testsend> [player]

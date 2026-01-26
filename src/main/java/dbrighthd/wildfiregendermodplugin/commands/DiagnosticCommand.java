@@ -49,7 +49,7 @@ public class DiagnosticCommand implements CommandExecutor, TabCompleter {
             ModSyncPacket format = plugin.getNetworkManager().getPacketFormatForPlayer(target.getUniqueId());
             ModUser user = plugin.getUserManager().getUsers().get(target.getUniqueId());
 
-            sender.sendMessage(ChatColor.AQUA + "--- Wildfire Status: " + target.getName() + " ---");
+            sender.sendMessage(ChatColor.AQUA + "--- Female Gender Mod Status: " + target.getName() + " ---");
             sender.sendMessage(ChatColor.YELLOW + "Protocol Version: " + ChatColor.WHITE +
                     (version == -1 ? "Unknown (Using default)" : version));
             sender.sendMessage(ChatColor.YELLOW + "Active Format: " + ChatColor.WHITE + format.getVersion() +

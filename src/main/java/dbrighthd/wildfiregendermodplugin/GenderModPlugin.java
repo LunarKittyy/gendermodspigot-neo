@@ -35,8 +35,8 @@ public final class GenderModPlugin extends JavaPlugin {
         registerModListeners();
 
         DiagnosticCommand diagCmd = new DiagnosticCommand(this);
-        getCommand("wildfire").setExecutor(diagCmd);
-        getCommand("wildfire").setTabCompleter(diagCmd);
+        getCommand("femalegender").setExecutor(diagCmd);
+        getCommand("femalegender").setTabCompleter(diagCmd);
     }
 
     @Override
