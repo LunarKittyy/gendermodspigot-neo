@@ -3,12 +3,16 @@ name: Java CI with Maven
 on:
   push:
     branches: ["main", "master", "protocol-v5-port"]
+    tags:
+      - "v*"
   pull_request:
     branches: ["main", "master", "protocol-v5-port"]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -32,3 +36,32 @@ jobs:
         with:
           name: Female-Gender-Mod-Plugin-${{ steps.get_version.outputs.VERSION }}
           path: target/*.jar
+
+      - name: Create/Update Latest Development Release
+        uses: softprops/action-gh-release@v2
+        if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+        with:
+          tag_name: latest-dev
+          name: Latest Development Build
+          body: |
+            Automated development build from branch `${{ github.ref_name }}`.
+            Commit: ${{ github.sha }}
+
+            > [!TIP]
+            > This release is automatically updated on every push.
+          files: target/*.jar
+          prerelease: true
+          make_latest: false
+
+      - name: Create Versioned Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          name: Release ${{ github.ref_name }}
+          body: |
+            Release build for version `${{ steps.get_version.outputs.VERSION }}`.
+            Tag: `${{ github.ref_name }}`
+          files: target/*.jar
+          draft: false
+          prerelease: false
+          make_latest: true
