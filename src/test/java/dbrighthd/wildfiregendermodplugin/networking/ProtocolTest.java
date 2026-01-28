@@ -29,7 +29,7 @@ public class ProtocolTest {
                 byte[] data = new byte[] {
                                 // UUID (2 longs = 16 bytes)
                                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                // Gender (FEMALE = index 0)
+                                // Gender (FEMALE = index 0 in mod)
                                 0x00,
                                 // BustSize (0.5f)
                                 0x3F, 0x00, 0x00, 0x00,
@@ -170,8 +170,11 @@ public class ProtocolTest {
 
                 assertEquals(userId, deserialized.userId());
                 assertEquals(GenderIdentities.FEMALE, deserialized.configuration().generalOptions().genderIdentity());
-                // UV Layouts should be null in V4
-                assertNull(deserialized.configuration().uvLayouts());
+                // UV Layouts should now use defaults in V4
+                assertNotNull(deserialized.configuration().uvLayouts());
+                assertNotNull(deserialized.configuration().uvLayouts().skin());
+                assertNotNull(deserialized.configuration().uvLayouts().skin().left());
+                assertEquals(5, deserialized.configuration().uvLayouts().skin().left().getQuads().size());
         }
 
         @Test
@@ -195,5 +198,109 @@ public class ProtocolTest {
                 assertEquals(5, NetworkManager.detectProtocolFromLength(71));
                 assertEquals(5, NetworkManager.detectProtocolFromLength(100));
                 assertEquals(-1, NetworkManager.detectProtocolFromLength(10));
+        }
+
+        @Test
+        public void testLegacyToV5TranslationDefaults() throws IOException {
+                // V2 packet bytes: UUID=0, Gender=MALE(0), Bust=0.5, HurtSounds=true,
+                // Physics=true, Armor=true, ShowInArmor=true,
+                // Bounce=0.333, Floppy=0.75, X=0, Y=0, Z=0, UniBoob=true, Cleavage=0
+                // For V2 read, it skips some fields that were added later (like voicePitch and
+                // UVs)
+                byte[] v2Data = new byte[] {
+                                // UUID
+                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                // Gender (FEMALE = 0)
+                                0x00,
+                                // BustSize (0.6f)
+                                0x3F, 0x19, (byte) 0x99, (byte) 0x9A,
+                                // HurtSounds (true)
+                                0x01,
+                                // BreastPhysics (true)
+                                0x01,
+                                // ArmorPhysics (true)
+                                0x01,
+                                // ShowInArmor (true)
+                                0x01,
+                                // Buoyancy (0.333f ~ 0x3EAA7EFA)
+                                0x3E, (byte) 0xAA, 0x7E, (byte) 0xFA,
+                                // Floppiness (0.75f)
+                                0x3F, 0x40, 0x00, 0x00,
+                                // XOffset (0.0f)
+                                0x00, 0x00, 0x00, 0x00,
+                                // YOffset (0.0f)
+                                0x00, 0x00, 0x00, 0x00,
+                                // ZOffset (0.0f)
+                                0x00, 0x00, 0x00, 0x00,
+                                // UniBoob (true)
+                                0x01,
+                                // Cleavage (0.0f)
+                                0x00, 0x00, 0x00, 0x00
+                };
+
+                dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV2 packet = new dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV2();
+                ModUser user;
+                try (CraftInputStream input = CraftInputStream.ofBytes(v2Data)) {
+                        user = packet.read(input);
+                }
+
+                assertNotNull(user);
+                // Verify V5-only defaults were applied during V2 read fallback
+                assertEquals(1.0f, user.configuration().generalOptions().voicePitch(), 0.001f,
+                                "Voice pitch should default to 1.0f");
+                assertEquals(0.6f, user.configuration().breastOptions().bustSize(), 0.001f);
+                assertEquals(0.333f, user.configuration().physicsOptions().buoyancy(), 0.001f);
+                assertEquals(0.75f, user.configuration().physicsOptions().floppiness(), 0.001f);
+                assertTrue(user.configuration().generalOptions().hurtSounds());
+                assertTrue(user.configuration().generalOptions().showInArmor());
+                assertTrue(user.configuration().physicsOptions().breastPhysics());
+                assertTrue(user.configuration().physicsOptions().armorPhysics());
+                assertTrue(user.configuration().breastOptions().uniBoob());
+
+                // UV Layouts should be defaulted
+                dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayouts defaultLayouts = dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayouts
+                                .defaultLayouts();
+                assertEquals(defaultLayouts, user.configuration().uvLayouts());
+        }
+
+        @Test
+        public void testBuilderDefaults() {
+                // GeneralOptions Defaults
+                dbrighthd.wildfiregendermodplugin.wildfire.setup.GeneralOptions general = new dbrighthd.wildfiregendermodplugin.wildfire.setup.GeneralOptions.Builder()
+                                .create();
+                assertEquals(GenderIdentities.MALE, general.genderIdentity(), "Default gender should be MALE");
+                assertTrue(general.hurtSounds(), "Default hurtSounds should be true");
+                assertEquals(1.0f, general.voicePitch(), 0.001f, "Default voicePitch should be 1.0f");
+                assertTrue(general.showInArmor(), "Default showInArmor should be true");
+
+                // PhysicsOptions Defaults
+                dbrighthd.wildfiregendermodplugin.wildfire.setup.PhysicsOptions physics = new dbrighthd.wildfiregendermodplugin.wildfire.setup.PhysicsOptions.Builder()
+                                .create();
+                assertTrue(physics.breastPhysics(), "Default breastPhysics should be true");
+                assertFalse(physics.armorPhysics(), "Default armorPhysics should be false");
+                assertEquals(0.333f, physics.buoyancy(), 0.001f, "Default buoyancy should be 0.333f");
+                assertEquals(0.75f, physics.floppiness(), 0.001f, "Default floppiness should be 0.75f");
+
+                // BreastOptions Defaults
+                dbrighthd.wildfiregendermodplugin.wildfire.setup.BreastOptions breasts = new dbrighthd.wildfiregendermodplugin.wildfire.setup.BreastOptions.Builder()
+                                .create();
+                assertEquals(0.6f, breasts.bustSize(), 0.001f, "Default bustSize should be 0.6f");
+                assertEquals(0.0f, breasts.xOffset(), 0.001f, "Default xOffset should be 0.0f");
+                assertEquals(0.0f, breasts.yOffset(), 0.001f, "Default yOffset should be 0.0f");
+                assertEquals(0.0f, breasts.zOffset(), 0.001f, "Default zOffset should be 0.0f");
+                assertTrue(breasts.uniBoob(), "Default uniBoob should be true");
+                assertEquals(0.0f, breasts.cleavage(), 0.001f, "Default cleavage should be 0.0f");
+
+                // UVLayout Defaults
+                dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayouts layouts = dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayouts
+                                .defaultLayouts();
+                assertEquals(dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayout.defaultSkinLeft(),
+                                layouts.skin().left());
+                assertEquals(dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayout.defaultSkinRight(),
+                                layouts.skin().right());
+                assertEquals(dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayout.defaultOverlayLeft(),
+                                layouts.overlay().left());
+                assertEquals(dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayout.defaultOverlayRight(),
+                                layouts.overlay().right());
         }
 }
