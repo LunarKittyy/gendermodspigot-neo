@@ -4,14 +4,14 @@ package dbrighthd.wildfiregendermodplugin.wildfire.setup;
  * @author winnpixie
  */
 public record GeneralOptions(GenderIdentities genderIdentity,
-                             boolean hurtSounds,
-                             float voicePitch,
-                             boolean showInArmor) {
+        boolean hurtSounds,
+        float voicePitch,
+        boolean showInArmor) {
     public static class Builder {
-        private GenderIdentities genderIdentity;
-        private boolean hurtSounds;
-        private float voicePitch;
-        private boolean showInArmor;
+        private GenderIdentities genderIdentity = GenderIdentities.MALE;
+        private boolean hurtSounds = true;
+        private float voicePitch = 1.0f;
+        private boolean showInArmor = true;
 
         public Builder setGenderIdentity(GenderIdentities genderIdentity) {
             this.genderIdentity = genderIdentity;
