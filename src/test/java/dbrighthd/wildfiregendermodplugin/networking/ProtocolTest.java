@@ -303,4 +303,53 @@ public class ProtocolTest {
                 assertEquals(dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayout.defaultOverlayRight(),
                                 layouts.overlay().right());
         }
+
+        @Test
+        public void testUuidPositionForProtocolDetection() throws IOException {
+                // This test validates the assumption used by protocol detection:
+                // UUID is always the first 16 bytes of the packet for all protocol versions.
+
+                UUID testUuid = UUID.randomUUID();
+                dbrighthd.wildfiregendermodplugin.wildfire.setup.ModConfiguration config = new dbrighthd.wildfiregendermodplugin.wildfire.setup.ModConfiguration(
+                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.GeneralOptions.Builder().create(),
+                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.PhysicsOptions.Builder().create(),
+                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.BreastOptions.Builder().create(),
+                                dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayouts.defaultLayouts());
+                ModUser user = new ModUser(testUuid, config);
+
+                // Test V2
+                byte[] v2Data = serializeWithPacket(user,
+                                new dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV2());
+                assertEquals(testUuid, extractUuidFromBytes(v2Data), "V2: UUID should be at bytes 0-15");
+
+                // Test V3
+                byte[] v3Data = serializeWithPacket(user,
+                                new dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV3());
+                assertEquals(testUuid, extractUuidFromBytes(v3Data), "V3: UUID should be at bytes 0-15");
+
+                // Test V4
+                byte[] v4Data = serializeWithPacket(user, new ModSyncPacketV4());
+                assertEquals(testUuid, extractUuidFromBytes(v4Data), "V4: UUID should be at bytes 0-15");
+
+                // Test V5
+                byte[] v5Data = serializeWithPacket(user, new ModSyncPacketV5());
+                assertEquals(testUuid, extractUuidFromBytes(v5Data), "V5: UUID should be at bytes 0-15");
+        }
+
+        private byte[] serializeWithPacket(ModUser user,
+                        dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacket packet)
+                        throws IOException {
+                try (java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+                                dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream out = new dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream(
+                                                bytes)) {
+                        packet.write(user, out);
+                        return bytes.toByteArray();
+                }
+        }
+
+        private UUID extractUuidFromBytes(byte[] data) throws IOException {
+                try (CraftInputStream in = CraftInputStream.ofBytes(data)) {
+                        return new UUID(in.readLong(), in.readLong());
+                }
+        }
 }

@@ -28,8 +28,8 @@ public class DiagnosticCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label,
             @NotNull String[] args) {
-        if (!sender.isOp()) {
-            sender.sendMessage(ChatColor.RED + "You must be an operator to use this command.");
+        if (!sender.hasPermission("wildfire.admin")) {
+            sender.sendMessage(ChatColor.RED + "You don't have permission to use this command.");
             return true;
         }
 

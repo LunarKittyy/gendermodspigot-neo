@@ -9,6 +9,17 @@ public record BreastOptions(float bustSize,
         float zOffset,
         boolean uniBoob,
         float cleavage) {
+    /**
+     * Builder for constructing {@link BreastOptions} instances.
+     * <p>
+     * Default values:
+     * <ul>
+     * <li>{@code bustSize} = {@code 0.6f}</li>
+     * <li>{@code xOffset}, {@code yOffset}, {@code zOffset} = {@code 0.0f}</li>
+     * <li>{@code uniBoob} = {@code true}</li>
+     * <li>{@code cleavage} = {@code 0.0f}</li>
+     * </ul>
+     */
     public static class Builder {
         private float bustSize = 0.6f;
         private float xOffset = 0.0f;

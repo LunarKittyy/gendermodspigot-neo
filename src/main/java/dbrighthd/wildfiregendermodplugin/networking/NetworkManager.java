@@ -144,10 +144,28 @@ public class NetworkManager {
             int detectedVersion = detectProtocolFromLength(len);
 
             if (detectedVersion != -1) {
-                plugin.getUserManager().setProtocolVersion(sender.getUniqueId(), detectedVersion);
-                format = PACKET_FORMATS.get(detectedVersion);
-                plugin.getCustomLogger().info("Auto-detected protocol V%d for %s (packet length: %d)",
-                        detectedVersion, sender.getName(), len);
+                ModSyncPacket candidateFormat = PACKET_FORMATS.get(detectedVersion);
+
+                // Validate detection by attempting to parse UUID
+                try (CraftInputStream probe = CraftInputStream.ofBytes(data)) {
+                    if (forge)
+                        probe.readByte();
+                    UUID parsedUuid = new UUID(probe.readLong(), probe.readLong());
+
+                    if (!parsedUuid.equals(sender.getUniqueId())) {
+                        plugin.getCustomLogger().warning(
+                                "Protocol detection mismatch for %s: parsed UUID %s doesn't match sender, using default",
+                                sender.getName(), parsedUuid);
+                    } else {
+                        plugin.getUserManager().setProtocolVersion(sender.getUniqueId(), detectedVersion);
+                        format = candidateFormat;
+                        plugin.getCustomLogger().info("Auto-detected protocol V%d for %s (packet length: %d)",
+                                detectedVersion, sender.getName(), len);
+                    }
+                } catch (IOException ex) {
+                    plugin.getCustomLogger().warning("Protocol detection failed for %s, using default",
+                            sender.getName());
+                }
             }
         }
         try (CraftInputStream input = CraftInputStream.ofBytes(data)) {
@@ -199,14 +217,16 @@ public class NetworkManager {
      * Useful for verifying that the client mod is receiving and processing data.
      */
     public void sendTestData(Player target, UUID dummyId) {
-        ModSyncPacket format = getPacketFormatForPlayer(target.getUniqueId());
-        ModUser dummyUser = new ModUser(dummyId, plugin.getUserManager().getUsers().values().stream()
-                .findFirst().map(ModUser::configuration).orElse(null));
+        var configOpt = plugin.getUserManager().getUsers().values().stream()
+                .findFirst().map(ModUser::configuration);
 
-        if (dummyUser.configuration() == null) {
+        if (configOpt.isEmpty()) {
             plugin.getCustomLogger().warning("No mod users stored to use as template for test sync.");
             return;
         }
+
+        ModSyncPacket format = getPacketFormatForPlayer(target.getUniqueId());
+        ModUser dummyUser = new ModUser(dummyId, configOpt.get());
 
         byte[] data = serializeUser(dummyUser, false, format);
         if (data.length > 0) {
