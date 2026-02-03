@@ -7,6 +7,17 @@ public record GeneralOptions(GenderIdentities genderIdentity,
         boolean hurtSounds,
         float voicePitch,
         boolean showInArmor) {
+    /**
+     * Builder for constructing {@link GeneralOptions} instances.
+     * <p>
+     * Default values:
+     * <ul>
+     * <li>{@code genderIdentity} = {@link GenderIdentities#MALE}</li>
+     * <li>{@code hurtSounds} = {@code true}</li>
+     * <li>{@code voicePitch} = {@code 1.0f}</li>
+     * <li>{@code showInArmor} = {@code true}</li>
+     * </ul>
+     */
     public static class Builder {
         private GenderIdentities genderIdentity = GenderIdentities.MALE;
         private boolean hurtSounds = true;

@@ -35,8 +35,13 @@ public final class GenderModPlugin extends JavaPlugin {
         registerModListeners();
 
         DiagnosticCommand diagCmd = new DiagnosticCommand(this);
-        getCommand("femalegender").setExecutor(diagCmd);
-        getCommand("femalegender").setTabCompleter(diagCmd);
+        var cmd = getCommand("femalegender");
+        if (cmd != null) {
+            cmd.setExecutor(diagCmd);
+            cmd.setTabCompleter(diagCmd);
+        } else {
+            customLogger.warning("Could not register /femalegender command - check plugin.yml");
+        }
     }
 
     @Override

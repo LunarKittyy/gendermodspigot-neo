@@ -1,12 +1,12 @@
 package dbrighthd.wildfiregendermodplugin.wildfire;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class UserManager {
-    private final Map<UUID, ModUser> users = new HashMap<>();
-    private final Map<UUID, Integer> protocolVersions = new HashMap<>();
+    private final Map<UUID, ModUser> users = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> protocolVersions = new ConcurrentHashMap<>();
 
     /**
      * A map to link players (by {@link UUID}) to their {@link ModUser}.
