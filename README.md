@@ -57,8 +57,8 @@ Before opening an issue:
 - **Enable `debug: true` in the plugin config** and reproduce the issue, then include the output in your report.
 
 Use the issue templates provided in this repository:
-- **Bug Report** - for unexpected behaviour or errors
-- **Feature Request** - for suggestions or improvements
+- [**Bug Report**](https://github.com/LunarKittyy/gendermodspigot-neo/issues/new?template=bug_report.md) - for unexpected behaviour or errors
+- [**Feature Request**](https://github.com/LunarKittyy/gendermodspigot-neo/issues/new?template=feature_request.md} - for suggestions or improvements
 
 ---
 
