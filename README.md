@@ -58,7 +58,7 @@ Before opening an issue:
 
 Use the issue templates provided in this repository:
 - [**Bug Report**](https://github.com/LunarKittyy/gendermodspigot-neo/issues/new?template=bug_report.md) - for unexpected behaviour or errors
-- [**Feature Request**](https://github.com/LunarKittyy/gendermodspigot-neo/issues/new?template=feature_request.md} - for suggestions or improvements
+- [**Feature Request**](https://github.com/LunarKittyy/gendermodspigot-neo/issues/new?template=feature_request.md) - for suggestions or improvements
 
 ---
 
