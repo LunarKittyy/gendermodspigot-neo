@@ -40,7 +40,7 @@ Controls which packet format the plugin uses to communicate with the client mod.
 | 4        | 4.0.0 – 4.3.4 |
 | 5        | 5.0.0+        |
 
-Set to `-1` to automatically use the newest known protocol — recommended if you want to avoid updating this manually on every mod update.
+Set to `-1` to automatically use the newest known protocol - recommended if you want to avoid updating this manually on every mod update.
 
 ### `debug`
 
