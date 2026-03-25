@@ -67,5 +67,5 @@ Use the issue templates provided in this repository:
 Originally created by **[dbrighthd](https://github.com/dbrighthd)**.
 
 - **Flamgop** — help with the original plugin development
-- **Stigstille** & **winnpixie** - porting to version 4.X.X
+- **Stigstille** & **winnpixie** - porting to latest Spigot version
 - **LunarKittyy** - porting to protocol v5
