@@ -1,39 +1,71 @@
-# Plugin for Wildfire's Female Gender Mod
+# Wildfire's Female Gender Mod - Spigot Plugin
 
-This is a Spigot plugin that allows clients using [Wildfire's Female Gender Mod](https://modrinth.com/mod/female-gender)
-to have synced configs when playing on a Spigot server. This plugin was made by me as a member of the community and is
-not affiliated with the Wildfire's Female Gender Mod.
+A Spigot plugin that syncs player settings from [Wildfire's Female Gender Mod](https://modrinth.com/mod/female-gender) on Spigot/Paper servers. This project is community-made and is not affiliated with the mod or its developers.
 
-Wildfire's Female Gender Mod is still required on the client to use the features, all this plugin does is sync the
-player-specific settings as it would on a Fabric server with the mod installed.
+**The client mod is still required.** This plugin replicates the sync behaviour that the mod provides natively on Fabric servers, allowing it to work on Spigot/Paper as well.
 
-Currently, this plugin only works in syncing the Fabric version of the mod, but I will be trying to fix it in the future
-for Forge (if possible). This is the first plugin I have ever made so it is not particularly clean, but it works!
+> **Note:** Currently only the Fabric version of the mod is supported for syncing. Forge support is not guaranteed.
 
-Thank you to Flamgop for the help with learning how to make a plugin, and Stigstille + winnpixie for porting it to the
-latest Spigot version!
+Original repo: https://github.com/dbrighthd/gendermodspigot 
 
-Download from Modrinth: https://modrinth.com/plugin/female-gender-spigot
+---
 
-## Build Instructions
+## Installation
 
-1. (Optional) Open the project in your IDE of choice (i.e. Eclipse, IntelliJ IDEA, NetBeans, etc.)
-2. Compile using Maven's `Package` task (or run the command `mvn package` in your terminal).
-3. Copy the JAR file from the `target` folder to your server's `plugins` directory.
-4. Enjoy synced gender settings!
+1. Download the latest JAR from the [Releases page](../../releases).
+2. Place the JAR in your server's `plugins/` directory.
+3. Start or restart your server.
+4. Configure the plugin (see below), then reload or restart again.
 
-## Configuration Help
+---
 
-### Mod
+## Building from Source
 
-`protocol` (Which packet format to use)
+1. Clone the repository.
+2. Run `mvn package` in the project root (or use your IDE's Maven `Package` task).
+3. The compiled JAR will be in the `target/` folder.
 
-| Protocol |      Mod      |
+---
+
+## Configuration
+
+### `protocol`
+
+Controls which packet format the plugin uses to communicate with the client mod. Set this to match the version of Wildfire's Female Gender Mod your players are using.
+
+| Protocol | Mod Version   |
 |:--------:|:-------------:|
-|    2     | 2.8.1 - 3.0.1 |
-|    3     | 3.1.0 - 4.0.0 |
-|    4     | 4.0.0 - 4.3.4 |
-|    5     | 5.0.0 - ?.?.? |
+| 2        | 2.8.1 – 3.0.1 |
+| 3        | 3.1.0 – 4.0.0 |
+| 4        | 4.0.0 – 4.3.4 |
+| 5        | 5.0.0+        |
 
-Setting this value to -1 will try using the newest known protocol, useful so you don't need to change this manually
-every time you update the mod and plugin.
+Set to `-1` to automatically use the newest known protocol — recommended if you want to avoid updating this manually on every mod update.
+
+### `debug`
+
+Set to `true` to enable debug-level logging in the server console. **This is required when submitting a bug report.**
+
+---
+
+## Reporting Issues
+
+Before opening an issue:
+
+- Make sure you're on the **latest release**.
+- Check that your `protocol` value matches your client mod version (or use `-1`).
+- **Enable `debug: true` in the plugin config** and reproduce the issue, then include the output in your report.
+
+Use the issue templates provided in this repository:
+- **Bug Report** - for unexpected behaviour or errors
+- **Feature Request** - for suggestions or improvements
+
+---
+
+## Credits
+
+Originally created by **[dbrighthd](https://github.com/dbrighthd)**.
+
+- **Flamgop** — help with the original plugin development
+- **Stigstille** & **winnpixie** - porting to version 4.X.X
+- **LunarKittyy** - porting to protocol v5
