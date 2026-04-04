@@ -40,7 +40,7 @@ Controls which packet format the plugin uses to communicate with the client mod.
 | 4        | 4.0.0 – 4.3.4 |
 | 5        | 5.0.0+        |
 
-Set to `-1` to automatically use the newest known protocol - recommended if you want to avoid updating this manually on every mod update.
+Set to `-1` to automatically select a protocol based on your server's Minecraft version. This does **not** mean all client mod versions are supported simultaneously — the plugin will still use a single protocol determined by the server version (e.g. `1.21.9+` → protocol 5). Make sure your players are all using a client mod version that matches that protocol. If you have players on mixed mod versions, set the protocol explicitly to match whichever version they are all using.
 
 ### `debug`
 
