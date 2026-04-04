@@ -32,8 +32,8 @@ assignees: LunarKittyy
 | Client mod loader | Fabric / Forge / Other |
 
 ## Logs / Stack Trace
-<!-- Please enable debug-level logging in the plugin config before reproducing the issue, then paste the output here. Wrap in code blocks. -->
 
+*Please enable debug-level logging in the plugin config before reproducing the issue.*
 *Use https://mclo.gs/ to paste and share the logs link here.*
 
 ## Additional Context
