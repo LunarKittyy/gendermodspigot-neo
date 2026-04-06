@@ -5,6 +5,7 @@ import dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
 import dbrighthd.wildfiregendermodplugin.wildfire.setup.*;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.util.EnumMap;
 import java.util.Map;
@@ -49,7 +50,19 @@ public class ModSyncPacketV5 implements ModSyncPacket {
         breastBuilder.setCleavage(input.readFloat());
 
         // UV Layouts
-        UVLayouts uvLayouts = readUVLayouts(input);
+        // A V4-format client connecting through ViaVersion (e.g. 1.21.4 → 1.21.11)
+        // sends all 13 shared fields but no UV layouts block, so the stream is
+        // exhausted here. DataInputStream throws EOFException (a subclass of
+        // IOException) natively with no wrapping, so this catch is precise and
+        // cannot mask unrelated read errors from the fields above.
+        UVLayouts uvLayouts;
+        try {
+            uvLayouts = readUVLayouts(input);
+        } catch (EOFException ignored) {
+            // V4-format packet (no UV layouts block) — use defaults.
+            // All meaningful fields have already been read successfully above.
+            uvLayouts = UVLayouts.defaultLayouts();
+        }
 
         return new ModUser(userId, new ModConfiguration(
                 generalBuilder.create(),
