@@ -38,6 +38,9 @@ public class HelloPacketListener implements PluginMessageListener {
 
             if (protocolVersion != -1) {
                 plugin.getUserManager().setProtocolVersion(player.getUniqueId(), protocolVersion);
+                // Protocol is confirmed via handshake — mark this player ready to
+                // receive sync packets. Their payload will arrive shortly after.
+                plugin.getUserManager().setProtocolReady(player.getUniqueId());
             } else {
                 plugin.getCustomLogger().warning(
                         "Sync version mismatch for %s; network errors may occur! (client handshake=%d, server protocol version=1)",
