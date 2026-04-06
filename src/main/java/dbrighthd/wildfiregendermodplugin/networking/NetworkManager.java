@@ -104,6 +104,12 @@ public class NetworkManager {
             Map<Integer, byte[]> forgeCache = new HashMap<>();
 
             for (Player recipient : audience) {
+                // Skip recipients whose protocol has not been confirmed yet.
+                // Sending before confirmation risks a format mismatch that
+                // disconnects the client (e.g. V4 client receives a V5 packet).
+                if (!plugin.getUserManager().isProtocolReady(recipient.getUniqueId()))
+                    continue;
+
                 ModSyncPacket format = getPacketFormatForPlayer(recipient.getUniqueId());
                 int version = format.getVersion();
 
@@ -192,9 +198,6 @@ public class NetworkManager {
                     forge, format.getVersion());
 
             // Attempt fallback to lower protocol versions before giving up.
-            // This commonly happens when the client mod version is older than the
-            // protocol the server auto-detected (e.g. mod 4.3.3 sends protocol 4
-            // packets but the server is on 1.21.9+ so it defaults to protocol 5).
             ModUser fallbackUser = tryFallbackProtocols(data, forge, format.getVersion(), sender);
             if (fallbackUser != null) {
                 return fallbackUser;
