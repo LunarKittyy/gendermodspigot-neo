@@ -21,6 +21,14 @@ import java.util.UUID;
 public class NetworkManager {
     private static final Map<Integer, ModSyncPacket> PACKET_FORMATS;
 
+    /**
+     * The lowest protocol version with a working implementation.
+     * Protocol 1 (ModSyncPacketV1) is a stub that throws
+     * {@link UnsupportedOperationException} from read/write and must never
+     * be used for deserialization attempts.
+     */
+    private static final int MIN_IMPLEMENTED_PROTOCOL = 2;
+
     private final GenderModPlugin plugin;
 
     private ModSyncPacket packetFormat;
@@ -168,6 +176,7 @@ public class NetworkManager {
                 }
             }
         }
+
         try (CraftInputStream input = CraftInputStream.ofBytes(data)) {
             if (forge)
                 input.readByte();
@@ -181,10 +190,65 @@ public class NetworkManager {
         } catch (IOException ex) {
             plugin.getCustomLogger().debug("Data malformed during deserialization (forge=%s, protocol=%d)",
                     forge, format.getVersion());
+
+            // Attempt fallback to lower protocol versions before giving up.
+            // This commonly happens when the client mod version is older than the
+            // protocol the server auto-detected (e.g. mod 4.3.3 sends protocol 4
+            // packets but the server is on 1.21.9+ so it defaults to protocol 5).
+            ModUser fallbackUser = tryFallbackProtocols(data, forge, format.getVersion(), sender);
+            if (fallbackUser != null) {
+                return fallbackUser;
+            }
+
             plugin.getCustomLogger().warning(ex, "Could not deserialize user (forge=%s, protocol=%d)",
                     forge, format.getVersion());
         }
 
+        return null;
+    }
+
+    /**
+     * Attempts to deserialize {@code data} using each protocol version below
+     * {@code currentVersion}, from {@code currentVersion - 1} down to
+     * {@link #MIN_IMPLEMENTED_PROTOCOL} (protocol 1 is a stub that throws
+     * {@link UnsupportedOperationException} and must be skipped).
+     * <p>
+     * If a lower version succeeds it logs an actionable WARNING telling the
+     * admin which {@code protocol} value to set in the plugin config, then
+     * returns the successfully deserialized user. Returns {@code null} if no
+     * lower version succeeds.
+     */
+    private ModUser tryFallbackProtocols(byte[] data, boolean forge, int currentVersion, Player sender) {
+        for (int candidate = currentVersion - 1; candidate >= MIN_IMPLEMENTED_PROTOCOL; candidate--) {
+            ModSyncPacket fallbackFormat = PACKET_FORMATS.get(candidate);
+            if (fallbackFormat == null) continue;
+
+            try (CraftInputStream input = CraftInputStream.ofBytes(data)) {
+                if (forge)
+                    input.readByte();
+
+                ModUser user = fallbackFormat.read(input);
+                if (user != null) {
+                    plugin.getCustomLogger().warning(
+                            "Protocol mismatch detected for player %s: server expected protocol %d but the packet "
+                            + "was successfully parsed as protocol %d (mod version range: %s). "
+                            + "Set 'protocol: %d' in the plugin config to match this player's client mod version, "
+                            + "or ask the player to update to mod version 5.0.0+ for protocol %d.",
+                            sender.getName(),
+                            currentVersion,
+                            candidate,
+                            fallbackFormat.getModRange(),
+                            candidate,
+                            currentVersion);
+                    plugin.getCustomLogger().debug(
+                            "Fallback deserialization succeeded for %s (forge=%s, protocol=%d)",
+                            user.userId(), forge, candidate);
+                    return user;
+                }
+            } catch (IOException ignored) {
+                // This candidate version also failed — try the next lower one
+            }
+        }
         return null;
     }
 
