@@ -53,7 +53,9 @@ public class CustomPluginLogger {
     }
 
     public void log(Level level, String message, Object... params) {
-        if (!enabled)
+        // Always emit WARNING and SEVERE regardless of the enabled flag so that
+        // critical failures are never silently swallowed.
+        if (!enabled && level.intValue() < Level.WARNING.intValue())
             return;
 
         if (params.length == 0) {
@@ -82,7 +84,7 @@ public class CustomPluginLogger {
     }
 
     public void thrown(Level level, Throwable throwable, String message, Object... params) {
-        if (!enabled)
+        if (!enabled && level.intValue() < Level.WARNING.intValue())
             return;
 
         if (params.length == 0) {

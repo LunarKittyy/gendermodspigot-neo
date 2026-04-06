@@ -102,6 +102,11 @@ public class CraftInputStream extends DataInputStream {
      *                     another I/O error occurs.
      */
     public <T extends Enum<T>> T readEnum(Class<T> enumClass) throws IOException {
-        return enumClass.getEnumConstants()[readVarInt()];
+        T[] constants = enumClass.getEnumConstants();
+        int ordinal = readVarInt();
+        if (ordinal < 0 || ordinal >= constants.length)
+            throw new IOException("Enum ordinal " + ordinal + " out of range for " + enumClass.getSimpleName()
+                    + " (max " + (constants.length - 1) + ")");
+        return constants[ordinal];
     }
 }

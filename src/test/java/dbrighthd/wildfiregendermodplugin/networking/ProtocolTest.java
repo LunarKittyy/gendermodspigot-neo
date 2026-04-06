@@ -149,7 +149,7 @@ public class ProtocolTest {
                                                 1.0f),
                                 new dbrighthd.wildfiregendermodplugin.wildfire.setup.BreastOptions(0.5f, 0.0f, 0.0f,
                                                 0.0f, false, 0.0f),
-                                null);
+                                dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayouts.defaultLayouts());
 
                 UUID userId = UUID.randomUUID();
                 ModUser user = new ModUser(userId, config);

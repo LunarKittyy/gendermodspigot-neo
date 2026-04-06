@@ -10,6 +10,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Collections;
 
 /**
  * Handles the "Hello" handshake from mod users (5.0.0+).
@@ -41,6 +42,14 @@ public class HelloPacketListener implements PluginMessageListener {
                 // Protocol is confirmed via handshake — mark this player ready to
                 // receive sync packets. Their payload will arrive shortly after.
                 plugin.getUserManager().setProtocolReady(player.getUniqueId());
+
+                // Immediately dump all currently stored users to this player so they
+                // see players who were already online. Without this, V5 clients only
+                // get the dump when their own payload triggers ModPayloadListener —
+                // which can arrive seconds later, by which time the other player may
+                // have already disconnected.
+                plugin.getServer().getScheduler().runTask(plugin,
+                        () -> plugin.getNetworkManager().sync(Collections.singletonList(player)));
             } else {
                 plugin.getCustomLogger().warning(
                         "Sync version mismatch for %s; network errors may occur! (client handshake=%d, server protocol version=1)",

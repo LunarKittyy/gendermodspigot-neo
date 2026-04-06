@@ -16,19 +16,21 @@ import org.bukkit.plugin.java.JavaPlugin;
  * @author dbrighthd
  */
 public final class GenderModPlugin extends JavaPlugin {
-    private final CustomPluginLogger customLogger = new CustomPluginLogger(this);
+    private CustomPluginLogger customLogger;
     private final UserManager userManager = new UserManager();
     private final NetworkManager networkManager = new NetworkManager(this);
 
     @Override
     public void onEnable() {
-        customLogger.info("By @dbrighthd, with contributions from @stigstille and @winnpixie");
-
         saveDefaultConfig();
+        customLogger = new CustomPluginLogger(this);
+
+        customLogger.info("By @dbrighthd, with contributions from @stigstille and @winnpixie");
 
         if (!networkManager.init()) {
             customLogger.severe("INVALID PROTOCOL, DISABLING SELF.");
             getServer().getPluginManager().disablePlugin(this);
+            return;
         }
 
         registerEventListeners();

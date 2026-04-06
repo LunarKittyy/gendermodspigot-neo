@@ -276,7 +276,15 @@ public class NetworkManager {
             plugin.getCustomLogger().debug("Outgoing payload [%s] -> %s",
                     channel, plugin.getCustomLogger().hexDump(data));
         }
-        target.sendPluginMessage(plugin, channel, data);
+        try {
+            target.sendPluginMessage(plugin, channel, data);
+        } catch (Exception ex) {
+            // Guard against IllegalArgumentException (unregistered channel) or
+            // other runtime errors so one bad recipient cannot abort the whole
+            // sync loop and leave other players without their update.
+            plugin.getCustomLogger().warning(ex, "Could not send plugin message to %s on channel %s",
+                    target.getName(), channel);
+        }
     }
 
     /**
