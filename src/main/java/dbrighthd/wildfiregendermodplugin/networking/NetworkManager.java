@@ -21,6 +21,14 @@ import java.util.UUID;
 public class NetworkManager {
     private static final Map<Integer, ModSyncPacket> PACKET_FORMATS;
 
+    /**
+     * The lowest protocol version with a working implementation.
+     * Protocol 1 (ModSyncPacketV1) is a stub that throws
+     * {@link UnsupportedOperationException} from read/write and must never
+     * be used for deserialization attempts.
+     */
+    private static final int MIN_IMPLEMENTED_PROTOCOL = 2;
+
     private final GenderModPlugin plugin;
 
     private ModSyncPacket packetFormat;
@@ -201,7 +209,9 @@ public class NetworkManager {
 
     /**
      * Attempts to deserialize {@code data} using each protocol version below
-     * {@code currentVersion}, from {@code currentVersion - 1} down to 1.
+     * {@code currentVersion}, from {@code currentVersion - 1} down to
+     * {@link #MIN_IMPLEMENTED_PROTOCOL} (protocol 1 is a stub that throws
+     * {@link UnsupportedOperationException} and must be skipped).
      * <p>
      * If a lower version succeeds it logs an actionable WARNING telling the
      * admin which {@code protocol} value to set in the plugin config, then
@@ -209,7 +219,7 @@ public class NetworkManager {
      * lower version succeeds.
      */
     private ModUser tryFallbackProtocols(byte[] data, boolean forge, int currentVersion, Player sender) {
-        for (int candidate = currentVersion - 1; candidate >= 1; candidate--) {
+        for (int candidate = currentVersion - 1; candidate >= MIN_IMPLEMENTED_PROTOCOL; candidate--) {
             ModSyncPacket fallbackFormat = PACKET_FORMATS.get(candidate);
             if (fallbackFormat == null) continue;
 
