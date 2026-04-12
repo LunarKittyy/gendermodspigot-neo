@@ -12,7 +12,7 @@ Original repo: https://github.com/dbrighthd/gendermodspigot
 
 ## Installation
 
-1. Download the latest JAR from the [Releases page](../../releases).
+1. Download the latest JAR from the [Releases page](../../releases). Choose latest stable. If that has issues, try the latest dev release.
 2. Place the JAR in your server's `plugins/` directory.
 3. Start or restart your server.
 4. Configure the plugin (see below), then reload or restart again.
