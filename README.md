@@ -38,7 +38,7 @@ Controls which packet format the plugin uses to communicate with the client mod.
 | 2        | 2.8.1 – 3.0.1 | 1.18 – 1.20.1                   |
 | 3        | 3.1.0 – 4.0.0 | 1.20.2 – 1.21.1                 |
 | 4        | 4.0.0 – 4.3.4 | 1.21.2 – 1.21.8                 |
-| 5-legacy | 5.0.0-Beta.1  | 1.21.9 (UNSUPPORTED)            |
+| 5(legacy)| 5.0.0-Beta.1  | 1.21.9 (unsupported)            |
 | 5        | 5.0.0+        | 1.21.10+                        |
 
 Set to `-1` to automatically select a protocol based on your server's Minecraft version. This does **not** mean all client mod versions are supported simultaneously — the plugin will still use a single protocol determined by the server version (e.g. `1.21.10+` → protocol 5). Make sure your players are all using a client mod version that matches that protocol. If you have players on mixed mod versions, set the protocol explicitly to match whichever version they are all using.
