@@ -50,12 +50,14 @@ public class ModSyncPacketV5 implements ModSyncPacket {
         breastBuilder.setCleavage(input.readFloat());
 
         byte[] tailData = input.readAllBytes();
-        UVLayouts uvLayouts;
-        if (tailData.length == 0) {
-            // V4-format packet sent as V5 length
-            uvLayouts = UVLayouts.defaultLayouts();
-        } else {
-            uvLayouts = UVLayouts.defaultLayouts(); // We still populate default for configuration needs
+        UVLayouts uvLayouts = UVLayouts.defaultLayouts(); // We still populate default for configuration needs initially
+        if (tailData.length > 0) {
+            try (CraftInputStream probe = CraftInputStream.ofBytes(tailData)) {
+                uvLayouts = readUVLayouts(probe);
+            } catch (Exception ignored) {
+                // Fallback to defaults if parsing fails or reaches EOF
+                uvLayouts = UVLayouts.defaultLayouts();
+            }
         }
 
         return new ModUser(userId, new ModConfiguration(
