@@ -49,26 +49,20 @@ public class ModSyncPacketV5 implements ModSyncPacket {
         breastBuilder.setUniBoob(input.readBoolean());
         breastBuilder.setCleavage(input.readFloat());
 
-        // UV Layouts
-        // A V4-format client connecting through ViaVersion (e.g. 1.21.4 → 1.21.11)
-        // sends all 13 shared fields but no UV layouts block, so the stream is
-        // exhausted here. DataInputStream throws EOFException (a subclass of
-        // IOException) natively with no wrapping, so this catch is precise and
-        // cannot mask unrelated read errors from the fields above.
+        byte[] tailData = input.readAllBytes();
         UVLayouts uvLayouts;
-        try {
-            uvLayouts = readUVLayouts(input);
-        } catch (EOFException ignored) {
-            // V4-format packet (no UV layouts block) — use defaults.
-            // All meaningful fields have already been read successfully above.
+        if (tailData.length == 0) {
+            // V4-format packet sent as V5 length
             uvLayouts = UVLayouts.defaultLayouts();
+        } else {
+            uvLayouts = UVLayouts.defaultLayouts(); // We still populate default for configuration needs
         }
 
         return new ModUser(userId, new ModConfiguration(
                 generalBuilder.create(),
                 physicsBuilder.create(),
                 breastBuilder.create(),
-                uvLayouts));
+                uvLayouts), tailData.length > 0 ? tailData : null);
     }
 
     @Override
@@ -98,8 +92,12 @@ public class ModSyncPacketV5 implements ModSyncPacket {
         output.writeBoolean(breast.uniBoob());
         output.writeFloat(breast.cleavage());
 
-        // UV Layouts
-        writeUVLayouts(uvLayouts, output);
+        // UV Layouts / Tail Data
+        if (user.rawUvBytes() != null) {
+            output.write(user.rawUvBytes());
+        } else {
+            writeUVLayouts(uvLayouts, output);
+        }
     }
 
     private UVLayouts readUVLayouts(CraftInputStream input) throws IOException {
