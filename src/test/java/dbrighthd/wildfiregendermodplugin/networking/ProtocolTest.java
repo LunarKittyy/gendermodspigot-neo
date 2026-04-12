@@ -352,4 +352,221 @@ public class ProtocolTest {
                         return new UUID(in.readLong(), in.readLong());
                 }
         }
+
+        // -------------------------------------------------------------------------
+        // Regression tests — based on real bugs discovered during Beta.1 support
+        // -------------------------------------------------------------------------
+
+        /**
+         * Regression: Beta.1 client sends a truncated V5 packet (UV section cut short).
+         * The server must not throw, must not assign null layouts, and must fall back
+         * to defaults — not crash the deserialization pipeline.
+         */
+        @Test
+        public void testV5TruncatedUvFallsBackToDefaults() throws IOException {
+                // Full V5 header (53 bytes) + only 2 VarInt(0)s instead of 4.
+                // Simulates a Beta.1 client whose UV section is smaller than the server expects.
+                byte[] data = new byte[] {
+                                // UUID
+                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                // Gender (FEMALE)
+                                0x00,
+                                // BustSize (0.5f)
+                                0x3F, 0x00, 0x00, 0x00,
+                                // HurtSounds (true)
+                                0x01,
+                                // VoicePitch (1.0f)
+                                0x3F, (byte) 0x80, 0x00, 0x00,
+                                // Physics (true, true, 1.0f, 1.0f)
+                                0x01, 0x01,
+                                0x3F, (byte) 0x80, 0x00, 0x00,
+                                0x3F, (byte) 0x80, 0x00, 0x00,
+                                // Breasts (0.0f, 0.0f, 0.0f, false, 0.0f)
+                                0x00, 0x00, 0x00, 0x00,
+                                0x00, 0x00, 0x00, 0x00,
+                                0x00, 0x00, 0x00, 0x00,
+                                0x00,
+                                0x00, 0x00, 0x00, 0x00,
+                                // UV Layouts — TRUNCATED: only 2 VarInt(0)s, not the full 4
+                                0x00, 0x00
+                };
+
+                ModSyncPacketV5 packet = new ModSyncPacketV5();
+                ModUser user;
+                try (CraftInputStream input = CraftInputStream.ofBytes(data)) {
+                        user = packet.read(input);
+                }
+
+                assertNotNull(user, "read() must not return null for a truncated packet");
+                assertNotNull(user.configuration().uvLayouts(),
+                                "uvLayouts must not be null — should fall back to defaults");
+                assertNotNull(user.configuration().uvLayouts().skin(),
+                                "uvLayouts.skin() must not be null after fallback");
+        }
+
+        /**
+         * Regression: After reading a truncated packet, write() must produce output
+         * that can be successfully re-read. This is the idempotency contract.
+         * If write() ever echoes raw bytes for the wrong recipient this fails.
+         */
+        @Test
+        public void testV5WriteFromTruncatedReadIsRereadable() throws IOException {
+                byte[] truncated = new byte[] {
+                                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                0x00,
+                                0x3F, 0x00, 0x00, 0x00,
+                                0x01,
+                                0x3F, (byte) 0x80, 0x00, 0x00,
+                                0x01, 0x01,
+                                0x3F, (byte) 0x80, 0x00, 0x00,
+                                0x3F, (byte) 0x80, 0x00, 0x00,
+                                0x00, 0x00, 0x00, 0x00,
+                                0x00, 0x00, 0x00, 0x00,
+                                0x00, 0x00, 0x00, 0x00,
+                                0x00,
+                                0x00, 0x00, 0x00, 0x00,
+                                // Truncated UV
+                                0x00, 0x00
+                };
+
+                ModSyncPacketV5 packet = new ModSyncPacketV5();
+
+                ModUser fromTruncated;
+                try (CraftInputStream in = CraftInputStream.ofBytes(truncated)) {
+                        fromTruncated = packet.read(in);
+                }
+
+                // Write then re-read — must not throw
+                byte[] rewritten = serializeWithPacket(fromTruncated, packet);
+                assertNotNull(rewritten);
+                assertTrue(rewritten.length > 0, "Rewritten packet must not be empty");
+
+                ModUser reread;
+                try (CraftInputStream in = CraftInputStream.ofBytes(rewritten)) {
+                        reread = packet.read(in);
+                }
+                assertNotNull(reread, "Re-read of rewritten packet must succeed");
+                assertNotNull(reread.configuration().uvLayouts());
+        }
+
+        /**
+         * Regression: write() output must be idempotent.
+         * Reading then writing twice must produce identical bytes.
+         * This catches any state leakage (e.g., rawUvBytes) that causes
+         * the first and second write to differ.
+         */
+        @Test
+        public void testV5WriteIsIdempotent() throws IOException {
+                dbrighthd.wildfiregendermodplugin.wildfire.setup.ModConfiguration config =
+                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.ModConfiguration(
+                                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.GeneralOptions.Builder().create(),
+                                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.PhysicsOptions.Builder().create(),
+                                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.BreastOptions.Builder().create(),
+                                                dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayouts.defaultLayouts());
+
+                ModUser user = new ModUser(UUID.randomUUID(), config);
+                ModSyncPacketV5 packet = new ModSyncPacketV5();
+
+                byte[] first = serializeWithPacket(user, packet);
+
+                // Read back, write again
+                ModUser reread;
+                try (CraftInputStream in = CraftInputStream.ofBytes(first)) {
+                        reread = packet.read(in);
+                }
+                byte[] second = serializeWithPacket(reread, packet);
+
+                assertEquals(first.length, second.length,
+                                "Two successive writes of the same logical data must produce the same byte count");
+                assertArrayEquals(first, second,
+                                "Two successive writes of the same logical data must be byte-identical");
+        }
+
+        /**
+         * Regression: Cross-player sync must never send Player A's raw byte snapshot
+         * to Player B. Concretely: a ModUser deserialized from one packet size must
+         * produce a packet readable by any other V5 client regardless of the source size.
+         *
+         * This is the exact regression that caused the second DecoderException
+         * (rawUvBytes echoed verbatim across different-version clients).
+         */
+        @Test
+        public void testV5CrossPlayerSyncNeverEchoesStaleRawBytes() throws IOException {
+                // "Player A" — full modern packet with actual UV data (1 quad in each layout)
+                java.util.Map<dbrighthd.wildfiregendermodplugin.wildfire.setup.UVDirection,
+                                dbrighthd.wildfiregendermodplugin.wildfire.setup.UVQuad> quads =
+                                new java.util.EnumMap<>(
+                                                dbrighthd.wildfiregendermodplugin.wildfire.setup.UVDirection.class);
+                quads.put(dbrighthd.wildfiregendermodplugin.wildfire.setup.UVDirection.NORTH,
+                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.UVQuad(1, 2, 3, 4));
+                dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayout layout =
+                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayout(quads);
+                dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayouts.Layer layer =
+                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayouts.Layer(layout, layout);
+                dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayouts uvLayouts =
+                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayouts(layer, layer);
+
+                ModUser playerA = new ModUser(UUID.randomUUID(),
+                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.ModConfiguration(
+                                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.GeneralOptions.Builder().create(),
+                                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.PhysicsOptions.Builder().create(),
+                                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.BreastOptions.Builder().create(),
+                                                uvLayouts));
+
+                ModSyncPacketV5 packet = new ModSyncPacketV5();
+
+                // Serialize Player A, as if the server is syncing A's data to Player B
+                byte[] sentToPlayerB = serializeWithPacket(playerA, packet);
+
+                // Player B must be able to read this without any exception
+                ModUser receivedByPlayerB;
+                try (CraftInputStream in = CraftInputStream.ofBytes(sentToPlayerB)) {
+                        receivedByPlayerB = packet.read(in);
+                }
+
+                assertNotNull(receivedByPlayerB);
+                assertNotNull(receivedByPlayerB.configuration().uvLayouts());
+
+                // The UV quad must survive the round-trip unaltered
+                dbrighthd.wildfiregendermodplugin.wildfire.setup.UVQuad quad =
+                                receivedByPlayerB.configuration().uvLayouts().skin().left().getQuads()
+                                                .get(dbrighthd.wildfiregendermodplugin.wildfire.setup.UVDirection.NORTH);
+                assertNotNull(quad, "UV quad must survive cross-player sync");
+                assertEquals(1, quad.x1());
+                assertEquals(2, quad.y1());
+                assertEquals(3, quad.x2());
+                assertEquals(4, quad.y2());
+        }
+
+        /**
+         * Regression: ModUser must not have a rawUvBytes field.
+         * If someone re-introduces it, this test fails at compile-time.
+         * Ensures the proxy pattern cannot silently re-appear.
+         */
+        @Test
+        public void testModUserHasNoRawUvBytesField() {
+                // If rawUvBytes() accessor exists this won't compile — that's intentional.
+                // We verify the record only has the two canonical accessors.
+                ModUser user = new ModUser(UUID.randomUUID(),
+                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.ModConfiguration(
+                                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.GeneralOptions.Builder().create(),
+                                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.PhysicsOptions.Builder().create(),
+                                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.BreastOptions.Builder().create(),
+                                                dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayouts.defaultLayouts()));
+
+                // These two must compile and must be the only component accessors
+                assertNotNull(user.userId());
+                assertNotNull(user.configuration());
+
+                // Verify via reflection that rawUvBytes is not present
+                boolean hasRawUvBytes = false;
+                for (java.lang.reflect.RecordComponent rc : ModUser.class.getRecordComponents()) {
+                        if (rc.getName().equals("rawUvBytes")) {
+                                hasRawUvBytes = true;
+                                break;
+                        }
+                }
+                assertFalse(hasRawUvBytes,
+                                "ModUser must not contain a rawUvBytes field — the proxy pattern causes cross-client sync corruption");
+        }
 }

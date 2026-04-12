@@ -5,7 +5,6 @@ import dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
 import dbrighthd.wildfiregendermodplugin.wildfire.setup.*;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.util.EnumMap;
 import java.util.Map;
@@ -64,7 +63,7 @@ public class ModSyncPacketV5 implements ModSyncPacket {
                 generalBuilder.create(),
                 physicsBuilder.create(),
                 breastBuilder.create(),
-                uvLayouts), tailData.length > 0 ? tailData : null);
+                uvLayouts));
     }
 
     @Override
@@ -94,12 +93,8 @@ public class ModSyncPacketV5 implements ModSyncPacket {
         output.writeBoolean(breast.uniBoob());
         output.writeFloat(breast.cleavage());
 
-        // UV Layouts / Tail Data
-        if (user.rawUvBytes() != null) {
-            output.write(user.rawUvBytes());
-        } else {
-            writeUVLayouts(uvLayouts, output);
-        }
+        // UV Layouts
+        writeUVLayouts(uvLayouts, output);
     }
 
     private UVLayouts readUVLayouts(CraftInputStream input) throws IOException {
