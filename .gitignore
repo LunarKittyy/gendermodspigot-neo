@@ -7,6 +7,10 @@ chat.txt
 *.iml
 *.ipr
 *.iws
+.env
+.env.example
+*.md 
+!README.md
 
 # IntelliJ
 out/
