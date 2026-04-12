@@ -3,7 +3,7 @@
 
 # User-specific stuff
 .idea/
-
+chat.txt
 *.iml
 *.ipr
 *.iws
