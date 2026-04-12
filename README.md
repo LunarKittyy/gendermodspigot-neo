@@ -65,7 +65,7 @@ Use the issue templates provided in this repository:
 
 ## Known incompatibilities
 
-- ViaVersion support is limited. If it works, great. If it breaks it breaks. 
+- ViaVersion support is limited. If it works, great. If it breaks it breaks and might not be fixed. 
 
 ## Credits
 
