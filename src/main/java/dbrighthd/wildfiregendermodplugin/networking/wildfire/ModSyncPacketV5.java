@@ -119,13 +119,14 @@ public class ModSyncPacketV5 implements ModSyncPacket {
         }
         Map<UVDirection, UVQuad> quads = new EnumMap<>(UVDirection.class);
         for (int i = 0; i < count; i++) {
-            UVDirection direction = UVDirection.byId(input.readVarInt());
+            UVDirection direction = input.readEnum(UVDirection.class);
             UVQuad quad = new UVQuad(
                     input.readVarInt(),
                     input.readVarInt(),
                     input.readVarInt(),
                     input.readVarInt());
-            quads.put(direction, quad);
+            if (quads.put(direction, quad) != null)
+                throw new IOException("Duplicate UV direction: " + direction);
         }
         return new UVLayout(quads);
     }

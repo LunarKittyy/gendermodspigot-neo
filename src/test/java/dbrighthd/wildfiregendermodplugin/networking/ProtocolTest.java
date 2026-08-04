@@ -11,12 +11,48 @@ import dbrighthd.wildfiregendermodplugin.wildfire.UserManager;
 import dbrighthd.wildfiregendermodplugin.wildfire.setup.GenderIdentities;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class ProtocolTest {
+        @Test
+        public void testVarNumberRoundTripsAtNumericLimits() throws IOException {
+                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                try (dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream output =
+                                new dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream(bytes)) {
+                        output.writeVarInt(Integer.MIN_VALUE);
+                        output.writeVarInt(Integer.MAX_VALUE);
+                        output.writeVarLong(Long.MIN_VALUE);
+                        output.writeVarLong(Long.MAX_VALUE);
+                }
+
+                try (CraftInputStream input = CraftInputStream.ofBytes(bytes.toByteArray())) {
+                        assertEquals(Integer.MIN_VALUE, input.readVarInt());
+                        assertEquals(Integer.MAX_VALUE, input.readVarInt());
+                        assertEquals(Long.MIN_VALUE, input.readVarLong());
+                        assertEquals(Long.MAX_VALUE, input.readVarLong());
+                }
+        }
+
+        @Test
+        public void testVarNumbersRejectOverflowBits() {
+                byte[] overflowingInt = {
+                                (byte) 0x80, (byte) 0x80, (byte) 0x80, (byte) 0x80, 0x10
+                };
+                byte[] overflowingLong = {
+                                (byte) 0x80, (byte) 0x80, (byte) 0x80, (byte) 0x80, (byte) 0x80,
+                                (byte) 0x80, (byte) 0x80, (byte) 0x80, (byte) 0x80, 0x02
+                };
+
+                assertThrows(IOException.class,
+                                () -> CraftInputStream.ofBytes(overflowingInt).readVarInt());
+                assertThrows(IOException.class,
+                                () -> CraftInputStream.ofBytes(overflowingLong).readVarLong());
+        }
+
         @Test
         public void testV5Parsing() throws IOException {
                 // Sample V5 packet captured from research:
@@ -356,11 +392,12 @@ public class ProtocolTest {
 
         @Test
         public void testLengthBasedDetection() {
-                assertEquals(2, NetworkManager.detectProtocolFromLength(36));
+                assertEquals(2, NetworkManager.detectProtocolFromLength(50));
                 assertEquals(3, NetworkManager.detectProtocolFromLength(49));
-                assertEquals(4, NetworkManager.detectProtocolFromLength(70));
-                assertEquals(5, NetworkManager.detectProtocolFromLength(71));
+                assertEquals(4, NetworkManager.detectProtocolFromLength(53));
+                assertEquals(5, NetworkManager.detectProtocolFromLength(54));
                 assertEquals(5, NetworkManager.detectProtocolFromLength(100));
+                assertEquals(-1, NetworkManager.detectProtocolFromLength(36));
                 assertEquals(-1, NetworkManager.detectProtocolFromLength(10));
         }
 
@@ -485,19 +522,23 @@ public class ProtocolTest {
                 byte[] v2Data = serializeWithPacket(user,
                                 new dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV2());
                 assertEquals(testUuid, extractUuidFromBytes(v2Data), "V2: UUID should be at bytes 0-15");
+                assertEquals(2, NetworkManager.detectProtocolFromLength(v2Data.length));
 
                 // Test V3
                 byte[] v3Data = serializeWithPacket(user,
                                 new dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV3());
                 assertEquals(testUuid, extractUuidFromBytes(v3Data), "V3: UUID should be at bytes 0-15");
+                assertEquals(3, NetworkManager.detectProtocolFromLength(v3Data.length));
 
                 // Test V4
                 byte[] v4Data = serializeWithPacket(user, new ModSyncPacketV4());
                 assertEquals(testUuid, extractUuidFromBytes(v4Data), "V4: UUID should be at bytes 0-15");
+                assertEquals(4, NetworkManager.detectProtocolFromLength(v4Data.length));
 
                 // Test V5
                 byte[] v5Data = serializeWithPacket(user, new ModSyncPacketV5());
                 assertEquals(testUuid, extractUuidFromBytes(v5Data), "V5: UUID should be at bytes 0-15");
+                assertEquals(5, NetworkManager.detectProtocolFromLength(v5Data.length));
         }
 
         private byte[] serializeWithPacket(ModUser user,

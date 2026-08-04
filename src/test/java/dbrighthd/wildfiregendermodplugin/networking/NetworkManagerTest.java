@@ -4,6 +4,7 @@ import dbrighthd.wildfiregendermodplugin.GenderModPlugin;
 import dbrighthd.wildfiregendermodplugin.logging.CustomPluginLogger;
 import dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream;
 import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacket;
+import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV2;
 import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV3;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
 import dbrighthd.wildfiregendermodplugin.wildfire.UserManager;
@@ -125,7 +126,56 @@ public class NetworkManagerTest {
                 "Sender's protocol must not be confirmed from a payload whose UUID doesn't match them");
     }
 
+    @Test
+    public void testDeserializeUserDetectsV2UsingSerializerLength() throws IOException {
+        UUID senderId = UUID.randomUUID();
+        Player sender = mock(Player.class);
+        when(sender.getUniqueId()).thenReturn(senderId);
+        when(sender.getName()).thenReturn("Tester");
+
+        byte[] v2Data = buildPacket(senderId, new ModSyncPacketV2());
+        assertEquals(50, v2Data.length);
+
+        ModUser user = networkManager.deserializeUser(v2Data, false, sender);
+
+        assertNotNull(user);
+        assertEquals(2, userManager.getProtocolVersion(senderId));
+    }
+
+    @Test
+    public void testDetectionDoesNotCommitMalformedPayloadWithMatchingUuid() throws IOException {
+        UUID senderId = UUID.randomUUID();
+        Player sender = mock(Player.class);
+        when(sender.getUniqueId()).thenReturn(senderId);
+        when(sender.getName()).thenReturn("Tester");
+
+        byte[] malformed = buildV3Packet(senderId);
+        malformed[16] = 99; // Invalid GenderIdentities ordinal.
+
+        assertNull(networkManager.deserializeUser(malformed, false, sender));
+        assertEquals(-1, userManager.getProtocolVersion(senderId));
+    }
+
+    @Test
+    public void testSuccessfulFallbackUpdatesTrackedProtocol() throws IOException {
+        UUID senderId = UUID.randomUUID();
+        Player sender = mock(Player.class);
+        when(sender.getUniqueId()).thenReturn(senderId);
+        when(sender.getName()).thenReturn("Tester");
+        userManager.setProtocolVersion(senderId, 5);
+
+        ModUser user = networkManager.deserializeUser(buildV3Packet(senderId), false, sender);
+
+        assertNotNull(user);
+        assertEquals(3, userManager.getProtocolVersion(senderId),
+                "A successful authenticated fallback must be used for future outbound packets");
+    }
+
     private byte[] buildV3Packet(UUID userId) throws IOException {
+        return buildPacket(userId, new ModSyncPacketV3());
+    }
+
+    private byte[] buildPacket(UUID userId, ModSyncPacket packet) throws IOException {
         ModConfiguration config = new ModConfiguration(
                 new GeneralOptions(GenderIdentities.FEMALE, true, 1.0f, true),
                 new PhysicsOptions(true, false, 0.333f, 0.75f),
@@ -135,7 +185,7 @@ public class NetworkManagerTest {
 
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (CraftOutputStream out = new CraftOutputStream(bytes)) {
-            new ModSyncPacketV3().write(user, out);
+            packet.write(user, out);
         }
         return bytes.toByteArray();
     }

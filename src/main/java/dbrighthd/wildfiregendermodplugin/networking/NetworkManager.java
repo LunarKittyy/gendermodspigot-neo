@@ -110,13 +110,15 @@ public class NetworkManager {
     }
 
     static int detectProtocolFromLength(int length) {
-        if (length == 36)
+        // Protocols 2-4 have fixed sizes. Protocol 5 shares V4's 53-byte
+        // header and appends a variable-length UV-layout section.
+        if (length == 50)
             return 2;
         if (length == 49)
             return 3;
-        if (length == 70)
+        if (length == 53)
             return 4;
-        if (length > 70)
+        if (length > 53)
             return 5;
         return -1;
     }
@@ -154,7 +156,7 @@ public class NetworkManager {
         }
 
         ModSyncPacket format = PACKET_FORMATS.get(version);
-        if (format == null) {
+        if (!isImplementedProtocol(version) || format == null) {
             plugin.getCustomLogger().warning("Unsupported protocol version %d for %s, falling back to version %d",
                     version, playerId, packetFormat.getVersion());
             return packetFormat;
@@ -170,10 +172,11 @@ public class NetworkManager {
                     plugin.getCustomLogger().hexDump(data));
         }
 
-        ModSyncPacket format = getPacketFormatForPlayer(sender.getUniqueId());
+        UUID senderId = sender.getUniqueId();
+        ModSyncPacket format = getPacketFormatForPlayer(senderId);
 
         // Dynamic detection if version is unknown
-        if (plugin.getUserManager().getProtocolVersion(sender.getUniqueId()) == -1) {
+        if (plugin.getUserManager().getProtocolVersion(senderId) == -1) {
             int len = data.length;
             if (forge)
                 len--; // Subtract forge prefix byte
@@ -183,21 +186,19 @@ public class NetworkManager {
             if (detectedVersion != -1) {
                 ModSyncPacket candidateFormat = PACKET_FORMATS.get(detectedVersion);
 
-                // Validate detection by attempting to parse UUID
-                try (CraftInputStream probe = CraftInputStream.ofBytes(data)) {
-                    if (forge)
-                        probe.readByte();
-                    UUID parsedUuid = new UUID(probe.readLong(), probe.readLong());
-
-                    if (!parsedUuid.equals(sender.getUniqueId())) {
+                // Only commit a detected protocol after the whole payload has
+                // decoded successfully and its UUID has been authenticated.
+                try {
+                    ModUser detectedUser = readUser(data, forge, candidateFormat);
+                    if (!detectedUser.userId().equals(senderId)) {
                         plugin.getCustomLogger().warning(
                                 "Protocol detection mismatch for %s: parsed UUID %s doesn't match sender, using default",
-                                sender.getName(), parsedUuid);
+                                sender.getName(), detectedUser.userId());
                     } else {
-                        plugin.getUserManager().setProtocolVersion(sender.getUniqueId(), detectedVersion);
-                        format = candidateFormat;
+                        plugin.getUserManager().setProtocolVersion(senderId, detectedVersion);
                         plugin.getCustomLogger().info("Auto-detected protocol V%d for %s (packet length: %d)",
                                 detectedVersion, sender.getName(), len);
+                        return detectedUser;
                     }
                 } catch (IOException ex) {
                     plugin.getCustomLogger().warning("Protocol detection failed for %s, using default",
@@ -206,11 +207,8 @@ public class NetworkManager {
             }
         }
 
-        try (CraftInputStream input = CraftInputStream.ofBytes(data)) {
-            if (forge)
-                input.readByte();
-
-            ModUser user = format.read(input);
+        try {
+            ModUser user = readUser(data, forge, format);
             if (user != null) {
                 plugin.getCustomLogger().debug("Successfully deserialized user %s (forge=%s, protocol=%d)",
                         user.userId(), forge, format.getVersion());
@@ -254,7 +252,12 @@ public class NetworkManager {
                     input.readByte();
 
                 ModUser user = fallbackFormat.read(input);
+                if (input.available() != 0)
+                    throw new IOException("Trailing data after protocol " + candidate + " payload");
                 if (user != null) {
+                    if (user.userId().equals(sender.getUniqueId())) {
+                        plugin.getUserManager().setProtocolVersion(sender.getUniqueId(), candidate);
+                    }
                     plugin.getCustomLogger().warning(
                             "Protocol mismatch detected for player %s: server expected protocol %d but the packet "
                             + "was successfully parsed as protocol %d (mod version range: %s). "
@@ -277,6 +280,18 @@ public class NetworkManager {
             }
         }
         return null;
+    }
+
+    private ModUser readUser(byte[] data, boolean forge, ModSyncPacket format) throws IOException {
+        try (CraftInputStream input = CraftInputStream.ofBytes(data)) {
+            if (forge)
+                input.readByte();
+
+            ModUser user = format.read(input);
+            if (input.available() != 0)
+                throw new IOException("Trailing data after protocol " + format.getVersion() + " payload");
+            return user;
+        }
     }
 
     private byte[] serializeUser(ModUser user, boolean forge, ModSyncPacket format) {

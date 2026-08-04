@@ -7,8 +7,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Collections;
-
 /**
  * Handles payload packets from mod users.
  *
@@ -47,13 +45,9 @@ public class ModPayloadListener implements PluginMessageListener {
         // for V5 clients this is a no-op (already marked ready by HelloPacketListener).
         plugin.getUserManager().setProtocolReady(player.getUniqueId());
 
-        // Send this player a full dump of all currently stored users so they see
-        // everyone who was already online. This is the deferred initial sync that
-        // replaces the join-time sync for this player — they weren't ready at join.
-        plugin.getNetworkManager().sync(Collections.singletonList(player));
-
         // Sync all stored users (including this player's just-updated data) to
-        // every ready online player.
+        // every ready online player. This also provides the sender's deferred
+        // initial sync without sending the same full dump to them twice.
         plugin.getNetworkManager().sync(plugin.getServer().getOnlinePlayers());
     }
 }
