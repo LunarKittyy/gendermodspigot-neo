@@ -53,7 +53,7 @@ public class ModSyncPacketV5 implements ModSyncPacket {
         if (tailData.length > 0) {
             try (CraftInputStream probe = CraftInputStream.ofBytes(tailData)) {
                 uvLayouts = readUVLayouts(probe);
-            } catch (Exception ignored) {
+            } catch (IOException ignored) {
                 // Fallback to defaults if parsing fails or reaches EOF
                 uvLayouts = UVLayouts.defaultLayouts();
             }
@@ -111,6 +111,12 @@ public class ModSyncPacketV5 implements ModSyncPacket {
 
     private UVLayout readUVLayout(CraftInputStream input) throws IOException {
         int count = input.readVarInt();
+        if (count < 0 || count > UVDirection.values().length) {
+            // There are only UVDirection.values().length valid directions, so any
+            // larger count is corrupt/truncated data — treat it as such rather than
+            // looping on it.
+            throw new IOException("Invalid UV layout quad count: " + count);
+        }
         Map<UVDirection, UVQuad> quads = new EnumMap<>(UVDirection.class);
         for (int i = 0; i < count; i++) {
             UVDirection direction = UVDirection.byId(input.readVarInt());

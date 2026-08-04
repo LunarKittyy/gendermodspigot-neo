@@ -52,14 +52,25 @@ public class NetworkManager {
             protocolVersion = detectDefaultProtocol();
         }
 
-        packetFormat = PACKET_FORMATS.get(protocolVersion);
-        if (packetFormat == null)
+        if (!isImplementedProtocol(protocolVersion))
             return false;
+
+        packetFormat = PACKET_FORMATS.get(protocolVersion);
 
         plugin.getCustomLogger().info("Using default protocol %d for mod version(s) %s",
                 packetFormat.getVersion(), packetFormat.getModRange());
 
         return true;
+    }
+
+    /**
+     * Whether {@code version} has a usable (non-stub) packet format registered.
+     * Protocol 1 is intentionally excluded even though it has an entry in
+     * {@link #PACKET_FORMATS}, since {@link ModSyncPacketV1} is a stub that
+     * throws {@link UnsupportedOperationException} from read/write.
+     */
+    static boolean isImplementedProtocol(int version) {
+        return version >= MIN_IMPLEMENTED_PROTOCOL && PACKET_FORMATS.containsKey(version);
     }
 
     private int detectDefaultProtocol() {
@@ -70,17 +81,29 @@ public class NetworkManager {
         try {
             String versionStr = version.split("-")[0];
             String[] parts = versionStr.split("\\.");
-            int major = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
-            int patch = parts.length > 2 ? Integer.parseInt(parts[2]) : 0;
+            int epoch = Integer.parseInt(parts[0]);
 
-            if (major > 21 || (major == 21 && patch >= 9))
-                return 5;
-            if (major == 21 && patch >= 2)
-                return 4;
-            if (major == 20 && patch >= 2)
-                return 3;
-            if (major >= 18)
+            if (epoch == 1) {
+                // Legacy "1.MINOR.PATCH" scheme (up through 1.21.x).
+                int minor = parts.length > 1 ? Integer.parseInt(parts[1]) : 0;
+                int patch = parts.length > 2 ? Integer.parseInt(parts[2]) : 0;
+
+                if (minor > 21 || (minor == 21 && patch >= 9))
+                    return 5;
+                if (minor == 21 && patch >= 2)
+                    return 4;
+                if (minor == 20 && patch >= 2)
+                    return 3;
+                if (minor >= 18)
+                    return 2;
                 return 2;
+            }
+
+            // New "YY.RELEASE[.PATCH]" scheme introduced with Minecraft 26.1 (2026+).
+            // The sync packet format hasn't changed since protocol 5 was introduced,
+            // so every version under this scheme uses protocol 5.
+            if (epoch >= 26)
+                return 5;
         } catch (Exception ignored) {
         }
         return 2;
@@ -248,8 +271,9 @@ public class NetworkManager {
                             user.userId(), forge, candidate);
                     return user;
                 }
-            } catch (IOException ignored) {
-                // This candidate version also failed — try the next lower one
+            } catch (IOException ex) {
+                plugin.getCustomLogger().debug("Fallback candidate protocol %d failed for %s: %s",
+                        candidate, sender.getName(), ex.getMessage());
             }
         }
         return null;

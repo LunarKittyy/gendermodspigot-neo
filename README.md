@@ -33,15 +33,17 @@ Original repo: https://github.com/dbrighthd/gendermodspigot
 
 Controls which packet format the plugin uses to communicate with the client mod. Set this to match the version of Wildfire's Female Gender Mod your players are using.
 
-| Protocol | Mod Version   | Minecraft Version (auto-detect) |
-|:--------:|:-------------:|:-------------------------------:|
-| 2        | 2.8.1 – 3.0.1 | 1.18 – 1.20.1                   |
-| 3        | 3.1.0 – 4.0.0 | 1.20.2 – 1.21.1                 |
-| 4        | 4.0.0 – 4.3.4 | 1.21.2 – 1.21.8                 |
-| 5(legacy)| 5.0.0-Beta.1  | 1.21.9 (unsupported)            |
-| 5        | 5.0.0+        | 1.21.10+                        |
+| Protocol | Mod Version   | Minecraft Version (auto-detect)          |
+|:--------:|:-------------:|:-----------------------------------------:|
+| 2        | 2.8.1 – 3.0.1 | 1.18 – 1.20.1                             |
+| 3        | 3.1.0 – 4.0.0 | 1.20.2 – 1.21.1                           |
+| 4        | 4.0.0 – 4.3.4 | 1.21.2 – 1.21.8                           |
+| 5(legacy)| 5.0.0-Beta.1  | 1.21.9 (unsupported)                      |
+| 5        | 5.0.0+        | 1.21.10+, including 26.1, 26.2, and later |
 
-Set to `-1` to automatically select a protocol based on your server's Minecraft version. This does **not** mean all client mod versions are supported simultaneously — the plugin will still use a single protocol determined by the server version (e.g. `1.21.10+` → protocol 5). Make sure your players are all using a client mod version that matches that protocol. If you have players on mixed mod versions, set the protocol explicitly to match whichever version they are all using.
+Minecraft moved to a `YEAR.RELEASE` version scheme starting with `26.1` in 2026, replacing the old `1.21.x` numbering. The sync packet format hasn't changed since protocol 5 was introduced, so every Minecraft version under the new scheme still uses protocol 5.
+
+Set to `-1` to automatically select a protocol based on your server's Minecraft version. This does **not** mean all client mod versions are supported simultaneously — the plugin will still use a single protocol determined by the server version (e.g. `1.21.10+` or `26.1+` → protocol 5). Make sure your players are all using a client mod version that matches that protocol. If you have players on mixed mod versions, set the protocol explicitly to match whichever version they are all using.
 `1.21.9` uses an incomplete proto 5 implementation and will not be officially supported.
 
 ### `debug`

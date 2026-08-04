@@ -52,8 +52,8 @@ public class HelloPacketListener implements PluginMessageListener {
                         () -> plugin.getNetworkManager().sync(Collections.singletonList(player)));
             } else {
                 plugin.getCustomLogger().warning(
-                        "Sync version mismatch for %s; network errors may occur! (client handshake=%d, server protocol version=1)",
-                        player.getName(), handshakeVersion);
+                        "Sync version mismatch for %s; network errors may occur! (client handshake=%d, server protocol version=%d)",
+                        player.getName(), handshakeVersion, ModConstants.HELLO_PROTOCOL_VERSION);
             }
 
             sendHelloResponse(player);

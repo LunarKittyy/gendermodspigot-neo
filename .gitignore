@@ -2,6 +2,9 @@
 .vscode/
 FemaleGenderMod-fabric/
 
+# Vendored upstream mod source (reference only, not tracked)
+/FemaleGenderMod/
+
 # User-specific stuff
 .idea/
 chat.txt

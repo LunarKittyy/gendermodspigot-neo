@@ -1,6 +1,9 @@
 package dbrighthd.wildfiregendermodplugin.networking;
 
 import dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftInputStream;
+import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV1;
+import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV2;
+import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV3;
 import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV4;
 import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV5;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
@@ -188,6 +191,167 @@ public class ProtocolTest {
                 assertEquals(2, NetworkManager.detectDefaultProtocol("1.18.1"));
                 assertEquals(2, NetworkManager.detectDefaultProtocol("1.19.4"));
                 assertEquals(2, NetworkManager.detectDefaultProtocol("invalid"));
+        }
+
+        /**
+         * Regression: Minecraft switched to a "YEAR.RELEASE" version scheme
+         * (e.g. 26.1, 26.2) starting in 2026, dropping the "1." prefix entirely.
+         * detectDefaultProtocol previously assumed every version string had the
+         * legacy "1.MINOR.PATCH" shape, so a bare "26.1" was misparsed and fell
+         * through to protocol 2 instead of protocol 5 (the sync packet format
+         * hasn't changed since protocol 5 was introduced).
+         */
+        @Test
+        public void testDefaultProtocolDetectionForYearReleaseScheme() {
+                assertEquals(5, NetworkManager.detectDefaultProtocol("26.1-R0.1-SNAPSHOT"));
+                assertEquals(5, NetworkManager.detectDefaultProtocol("26.2-R0.1-SNAPSHOT"));
+                assertEquals(5, NetworkManager.detectDefaultProtocol("26.2"));
+                assertEquals(5, NetworkManager.detectDefaultProtocol("26.1"));
+                // Future year releases should also resolve to protocol 5 by default.
+                assertEquals(5, NetworkManager.detectDefaultProtocol("27.4"));
+        }
+
+        @Test
+        public void testIsImplementedProtocol() {
+                assertFalse(NetworkManager.isImplementedProtocol(0));
+                assertFalse(NetworkManager.isImplementedProtocol(1), "Protocol 1 is a stub and must not be usable");
+                assertTrue(NetworkManager.isImplementedProtocol(2));
+                assertTrue(NetworkManager.isImplementedProtocol(3));
+                assertTrue(NetworkManager.isImplementedProtocol(4));
+                assertTrue(NetworkManager.isImplementedProtocol(5));
+                assertFalse(NetworkManager.isImplementedProtocol(6));
+                assertFalse(NetworkManager.isImplementedProtocol(99));
+        }
+
+        @Test
+        public void testV1ThrowsUnsupportedOperation() {
+                ModSyncPacketV1 packet = new ModSyncPacketV1();
+                assertThrows(UnsupportedOperationException.class, () -> packet.read(null));
+                assertThrows(UnsupportedOperationException.class, () -> packet.write(null, null));
+        }
+
+        @Test
+        public void testV4ModRangeMatchesReadmeFloor() {
+                assertEquals("4.0.0 - 4.3.4", new ModSyncPacketV4().getModRange());
+        }
+
+        @Test
+        public void testV2WriteRoundTrip() throws IOException {
+                dbrighthd.wildfiregendermodplugin.wildfire.setup.ModConfiguration config =
+                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.ModConfiguration(
+                                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.GeneralOptions(
+                                                                GenderIdentities.FEMALE, true, 1.0f, true),
+                                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.PhysicsOptions(true, true, 0.4f,
+                                                                0.6f),
+                                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.BreastOptions(0.5f, 0.1f, 0.2f,
+                                                                0.3f, true, 0.2f),
+                                                dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayouts.defaultLayouts());
+
+                UUID userId = UUID.randomUUID();
+                ModUser user = new ModUser(userId, config);
+                ModSyncPacketV2 packet = new ModSyncPacketV2();
+
+                byte[] serialized;
+                try (java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+                                dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream out = new dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream(
+                                                bytes)) {
+                        packet.write(user, out);
+                        serialized = bytes.toByteArray();
+                }
+
+                ModUser deserialized;
+                try (CraftInputStream in = CraftInputStream.ofBytes(serialized)) {
+                        deserialized = packet.read(in);
+                }
+
+                assertEquals(userId, deserialized.userId());
+                assertEquals(GenderIdentities.FEMALE, deserialized.configuration().generalOptions().genderIdentity());
+                assertEquals(0.5f, deserialized.configuration().breastOptions().bustSize());
+                assertEquals(0.4f, deserialized.configuration().physicsOptions().buoyancy());
+                assertEquals(0.6f, deserialized.configuration().physicsOptions().floppiness());
+                assertTrue(deserialized.configuration().physicsOptions().armorPhysics());
+        }
+
+        @Test
+        public void testV3WriteRoundTrip() throws IOException {
+                dbrighthd.wildfiregendermodplugin.wildfire.setup.ModConfiguration config =
+                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.ModConfiguration(
+                                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.GeneralOptions(
+                                                                GenderIdentities.MALE, false, 1.0f, false),
+                                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.PhysicsOptions(false, false, 0.333f,
+                                                                0.75f),
+                                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.BreastOptions(0.6f, 0.0f, 0.0f,
+                                                                0.0f, true, 0.0f),
+                                                dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayouts.defaultLayouts());
+
+                UUID userId = UUID.randomUUID();
+                ModUser user = new ModUser(userId, config);
+                ModSyncPacketV3 packet = new ModSyncPacketV3();
+
+                byte[] serialized;
+                try (java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+                                dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream out = new dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream(
+                                                bytes)) {
+                        packet.write(user, out);
+                        serialized = bytes.toByteArray();
+                }
+
+                ModUser deserialized;
+                try (CraftInputStream in = CraftInputStream.ofBytes(serialized)) {
+                        deserialized = packet.read(in);
+                }
+
+                assertEquals(userId, deserialized.userId());
+                assertEquals(GenderIdentities.MALE, deserialized.configuration().generalOptions().genderIdentity());
+                assertEquals(0.6f, deserialized.configuration().breastOptions().bustSize());
+                assertFalse(deserialized.configuration().generalOptions().hurtSounds());
+                assertFalse(deserialized.configuration().physicsOptions().breastPhysics());
+        }
+
+        /**
+         * Regression: a V5 UV layout section with an out-of-range quad count
+         * (more than the 5 known UVDirection values) is corrupt data, not a
+         * valid layout. It must fall back to defaults rather than looping on
+         * the bogus count or throwing an uncaught exception.
+         */
+        @Test
+        public void testV5MalformedUvCountFallsBackToDefaults() throws IOException {
+                java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+                try (dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream out =
+                                new dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream(bytes)) {
+                        // UUID
+                        out.writeUUID(UUID.randomUUID());
+                        // Gender, bust, hurtSounds, voicePitch
+                        out.writeEnum(GenderIdentities.FEMALE);
+                        out.writeFloat(0.5f);
+                        out.writeBoolean(true);
+                        out.writeFloat(1.0f);
+                        // Physics: breastPhysics, showInArmor, buoyancy, floppiness
+                        out.writeBoolean(true);
+                        out.writeBoolean(true);
+                        out.writeFloat(1.0f);
+                        out.writeFloat(1.0f);
+                        // Breasts: x, y, z, uniBoob, cleavage
+                        out.writeFloat(0.0f);
+                        out.writeFloat(0.0f);
+                        out.writeFloat(0.0f);
+                        out.writeBoolean(false);
+                        out.writeFloat(0.0f);
+                        // UV layouts: skin.left count is bogus (way more than 5 valid directions)
+                        out.writeVarInt(1000);
+                }
+
+                ModSyncPacketV5 packet = new ModSyncPacketV5();
+                ModUser user;
+                try (CraftInputStream input = CraftInputStream.ofBytes(bytes.toByteArray())) {
+                        user = packet.read(input);
+                }
+
+                assertNotNull(user, "read() must not throw for a malformed UV count");
+                assertEquals(
+                                dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayouts.defaultLayouts(),
+                                user.configuration().uvLayouts(),
+                                "Malformed UV count must fall back to default layouts");
         }
 
         @Test
