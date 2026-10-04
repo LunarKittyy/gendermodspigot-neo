@@ -26,11 +26,9 @@ public class ConnectionListener implements Listener {
     private void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
 
-        // The initial sync to this player is deferred: V5 clients receive it
-        // from HelloPacketListener once the handshake is confirmed; V4 clients
-        // receive it from ModPayloadListener once their payload is parsed.
-        // Calling sync() here is always a no-op (player not ready yet) and
-        // produces a misleading "Syncing X" log entry, so we skip it.
+        // The initial sync to this player is deferred until the client can accept
+        // it: after the play-phase hello (protocol 5), after it registers the sync
+        // channel (protocol 6), or after its first payload (protocols 2-4).
         plugin.getCustomLogger().debug("Player %s joined, awaiting handshake/payload", player.getName());
     }
 

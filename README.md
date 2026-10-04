@@ -1,10 +1,12 @@
 # Wildfire's Female Gender Mod - Spigot Plugin
 
-A Spigot plugin that syncs player settings from [Wildfire's Female Gender Mod](https://modrinth.com/mod/female-gender) on Spigot/Paper servers. This project is community-made and is not affiliated with the mod or its developers.
+A Spigot/Paper plugin that syncs player settings from [Wildfire's Female Gender Mod](https://modrinth.com/mod/female-gender) on Spigot/Paper servers. This project is community-made and is not affiliated with the mod or its developers.
 
 **The client mod is still required.** This plugin replicates the sync behaviour that the mod provides natively on Fabric servers, allowing it to work on Spigot/Paper as well.
 
-> **Note:** Currently only the Fabric version of the mod is supported for syncing. Forge support is not guaranteed.
+> **Note:** Currently only the Fabric version of the mod is supported for syncing. Forge/NeoForge support is not guaranteed.
+
+> **Mod 5.0.0 and newer (protocol 6) needs a [Paper](https://papermc.io) server** (or a fork of Paper, like Purpur). The mod now does its handshake during the configuration phase, which Spigot doesn't let plugins take part in. Older protocols still work on Spigot.
 
 Original repo: https://github.com/dbrighthd/gendermodspigot 
 
@@ -33,17 +35,17 @@ Original repo: https://github.com/dbrighthd/gendermodspigot
 
 Controls which packet format the plugin uses to communicate with the client mod. Set this to match the version of Wildfire's Female Gender Mod your players are using.
 
-| Protocol | Mod Version   | Minecraft Version (auto-detect)          |
-|:--------:|:-------------:|:-----------------------------------------:|
-| 2        | 2.8.1 – 3.0.1 | 1.18 – 1.20.1                             |
-| 3        | 3.1.0 – 4.0.0 | 1.20.2 – 1.21.1                           |
-| 4        | 4.0.0 – 4.3.4 | 1.21.2 – 1.21.8                           |
-| 5(legacy)| 5.0.0-Beta.1  | 1.21.9 (unsupported)                      |
-| 5        | 5.0.0+        | 1.21.10+, including 26.1, 26.2, and later |
+| Protocol | Mod Version                   | Minecraft Version (auto-detect) | Server        |
+|:--------:|:-----------------------------:|:-------------------------------:|:-------------:|
+| 2        | 2.8.1 – 3.0.1                 | 1.18 – 1.20.1                   | Spigot/Paper  |
+| 3        | 3.1.0 – 4.0.0                 | 1.20.2 – 1.21.1                 | Spigot/Paper  |
+| 4        | 4.0.0 – 4.3.4                 | 1.21.2 – 1.21.8                 | Spigot/Paper  |
+| 5        | 5.0.0-Beta.1 – 5.0.0-Beta.4   | 1.21.9 – 1.21.11                | Spigot/Paper  |
+| 6        | 5.0.0-Beta.5+ (incl. 5.0.0)   | 26.1+                           | Paper only    |
 
-Minecraft moved to a `YEAR.RELEASE` version scheme starting with `26.1` in 2026, replacing the old `1.21.x` numbering. The sync packet format hasn't changed since protocol 5 was introduced, so every Minecraft version under the new scheme still uses protocol 5.
+Minecraft moved to a `YEAR.RELEASE` version scheme starting with `26.1` in 2026, replacing the old `1.21.x` numbering.
 
-Set to `-1` to automatically select a protocol based on your server's Minecraft version. This does **not** mean all client mod versions are supported simultaneously — the plugin will still use a single protocol determined by the server version (e.g. `1.21.10+` or `26.1+` → protocol 5). Make sure your players are all using a client mod version that matches that protocol. If you have players on mixed mod versions, set the protocol explicitly to match whichever version they are all using.
+Set to `-1` to pick the protocol based on your server's Minecraft version. The plugin speaks one protocol at a time, so everyone needs a mod version from the same row. If your players are still on an older mod beta on a 26.x server (e.g. 5.0.0-Beta.4), set `protocol: 5` explicitly, or have them update.
 `1.21.9` uses an incomplete proto 5 implementation and will not be officially supported.
 
 ### `debug`
@@ -76,4 +78,4 @@ Originally created by **[dbrighthd](https://github.com/dbrighthd)**.
 
 - **Flamgop** — help with the original plugin development
 - **Stigstille** & **winnpixie** - porting to latest Spigot version
-- **LunarKittyy** - porting to protocol v5
+- **LunarKittyy** - porting to protocols v5 and v6

@@ -167,18 +167,6 @@ public class ProtocolTest {
         }
 
         @Test
-        public void testUserManagerProtocolTracking() {
-                UserManager userManager = new UserManager();
-                UUID uuid = UUID.randomUUID();
-
-                assertEquals(-1, userManager.getProtocolVersion(uuid));
-                userManager.setProtocolVersion(uuid, 5);
-                assertEquals(5, userManager.getProtocolVersion(uuid));
-                userManager.removePlayer(uuid);
-                assertEquals(-1, userManager.getProtocolVersion(uuid));
-        }
-
-        @Test
         public void testV4RoundTrip() throws IOException {
                 dbrighthd.wildfiregendermodplugin.wildfire.setup.ModConfiguration config = new dbrighthd.wildfiregendermodplugin.wildfire.setup.ModConfiguration(
                                 new dbrighthd.wildfiregendermodplugin.wildfire.setup.GeneralOptions(
@@ -234,17 +222,16 @@ public class ProtocolTest {
          * (e.g. 26.1, 26.2) starting in 2026, dropping the "1." prefix entirely.
          * detectDefaultProtocol previously assumed every version string had the
          * legacy "1.MINOR.PATCH" shape, so a bare "26.1" was misparsed and fell
-         * through to protocol 2 instead of protocol 5 (the sync packet format
-         * hasn't changed since protocol 5 was introduced).
+         * through to protocol 2 instead of the newest protocol.
          */
         @Test
         public void testDefaultProtocolDetectionForYearReleaseScheme() {
-                assertEquals(5, NetworkManager.detectDefaultProtocol("26.1-R0.1-SNAPSHOT"));
-                assertEquals(5, NetworkManager.detectDefaultProtocol("26.2-R0.1-SNAPSHOT"));
-                assertEquals(5, NetworkManager.detectDefaultProtocol("26.2"));
-                assertEquals(5, NetworkManager.detectDefaultProtocol("26.1"));
-                // Future year releases should also resolve to protocol 5 by default.
-                assertEquals(5, NetworkManager.detectDefaultProtocol("27.4"));
+                assertEquals(6, NetworkManager.detectDefaultProtocol("26.1-R0.1-SNAPSHOT"));
+                assertEquals(6, NetworkManager.detectDefaultProtocol("26.2-R0.1-SNAPSHOT"));
+                assertEquals(6, NetworkManager.detectDefaultProtocol("26.3.build.147-beta"));
+                assertEquals(6, NetworkManager.detectDefaultProtocol("26.1"));
+                // Future year releases should also resolve to the newest protocol by default.
+                assertEquals(6, NetworkManager.detectDefaultProtocol("27.4"));
         }
 
         @Test
@@ -255,7 +242,8 @@ public class ProtocolTest {
                 assertTrue(NetworkManager.isImplementedProtocol(3));
                 assertTrue(NetworkManager.isImplementedProtocol(4));
                 assertTrue(NetworkManager.isImplementedProtocol(5));
-                assertFalse(NetworkManager.isImplementedProtocol(6));
+                assertTrue(NetworkManager.isImplementedProtocol(6));
+                assertFalse(NetworkManager.isImplementedProtocol(7));
                 assertFalse(NetworkManager.isImplementedProtocol(99));
         }
 
@@ -391,17 +379,6 @@ public class ProtocolTest {
         }
 
         @Test
-        public void testLengthBasedDetection() {
-                assertEquals(2, NetworkManager.detectProtocolFromLength(50));
-                assertEquals(3, NetworkManager.detectProtocolFromLength(49));
-                assertEquals(4, NetworkManager.detectProtocolFromLength(53));
-                assertEquals(5, NetworkManager.detectProtocolFromLength(54));
-                assertEquals(5, NetworkManager.detectProtocolFromLength(100));
-                assertEquals(-1, NetworkManager.detectProtocolFromLength(36));
-                assertEquals(-1, NetworkManager.detectProtocolFromLength(10));
-        }
-
-        @Test
         public void testLegacyToV5TranslationDefaults() throws IOException {
                 // V2 packet bytes: UUID=0, Gender=MALE(0), Bust=0.5, HurtSounds=true,
                 // Physics=true, Armor=true, ShowInArmor=true,
@@ -505,42 +482,6 @@ public class ProtocolTest {
                                 layouts.overlay().right());
         }
 
-        @Test
-        public void testUuidPositionForProtocolDetection() throws IOException {
-                // This test validates the assumption used by protocol detection:
-                // UUID is always the first 16 bytes of the packet for all protocol versions.
-
-                UUID testUuid = UUID.randomUUID();
-                dbrighthd.wildfiregendermodplugin.wildfire.setup.ModConfiguration config = new dbrighthd.wildfiregendermodplugin.wildfire.setup.ModConfiguration(
-                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.GeneralOptions.Builder().create(),
-                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.PhysicsOptions.Builder().create(),
-                                new dbrighthd.wildfiregendermodplugin.wildfire.setup.BreastOptions.Builder().create(),
-                                dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayouts.defaultLayouts());
-                ModUser user = new ModUser(testUuid, config);
-
-                // Test V2
-                byte[] v2Data = serializeWithPacket(user,
-                                new dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV2());
-                assertEquals(testUuid, extractUuidFromBytes(v2Data), "V2: UUID should be at bytes 0-15");
-                assertEquals(2, NetworkManager.detectProtocolFromLength(v2Data.length));
-
-                // Test V3
-                byte[] v3Data = serializeWithPacket(user,
-                                new dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV3());
-                assertEquals(testUuid, extractUuidFromBytes(v3Data), "V3: UUID should be at bytes 0-15");
-                assertEquals(3, NetworkManager.detectProtocolFromLength(v3Data.length));
-
-                // Test V4
-                byte[] v4Data = serializeWithPacket(user, new ModSyncPacketV4());
-                assertEquals(testUuid, extractUuidFromBytes(v4Data), "V4: UUID should be at bytes 0-15");
-                assertEquals(4, NetworkManager.detectProtocolFromLength(v4Data.length));
-
-                // Test V5
-                byte[] v5Data = serializeWithPacket(user, new ModSyncPacketV5());
-                assertEquals(testUuid, extractUuidFromBytes(v5Data), "V5: UUID should be at bytes 0-15");
-                assertEquals(5, NetworkManager.detectProtocolFromLength(v5Data.length));
-        }
-
         private byte[] serializeWithPacket(ModUser user,
                         dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacket packet)
                         throws IOException {
@@ -549,12 +490,6 @@ public class ProtocolTest {
                                                 bytes)) {
                         packet.write(user, out);
                         return bytes.toByteArray();
-                }
-        }
-
-        private UUID extractUuidFromBytes(byte[] data) throws IOException {
-                try (CraftInputStream in = CraftInputStream.ofBytes(data)) {
-                        return new UUID(in.readLong(), in.readLong());
                 }
         }
 

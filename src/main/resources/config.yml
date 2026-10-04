@@ -5,7 +5,8 @@ config-version: 0.3
 mod:
   # The packet format used for mod data reads/writes
   # For a list of protocols and their supported mod versions, refer to https://modrinth.com/plugin/female-gender-spigot
-  # -1 will use the newest known protocol, so that you won't need to change this every mod and plugin update.
+  # -1 picks the protocol based on the server's Minecraft version (26.1+ uses protocol 6).
+  # Protocol 6 (mod 5.0.0-Beta.5 and newer) requires Paper or a fork of it.
   # Undocumented protocols will cause this plugin to disable itself on launch.
   protocol: -1
 

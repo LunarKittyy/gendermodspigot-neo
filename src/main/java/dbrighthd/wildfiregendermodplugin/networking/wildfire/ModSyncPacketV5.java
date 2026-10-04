@@ -97,19 +97,20 @@ public class ModSyncPacketV5 implements ModSyncPacket {
         writeUVLayouts(uvLayouts, output);
     }
 
-    private UVLayouts readUVLayouts(CraftInputStream input) throws IOException {
+    // Shared with ModSyncPacketV6, which kept the same UV layout encoding.
+    static UVLayouts readUVLayouts(CraftInputStream input) throws IOException {
         UVLayouts.Layer skin = readLayer(input);
         UVLayouts.Layer overlay = readLayer(input);
         return new UVLayouts(skin, overlay);
     }
 
-    private UVLayouts.Layer readLayer(CraftInputStream input) throws IOException {
+    static UVLayouts.Layer readLayer(CraftInputStream input) throws IOException {
         UVLayout left = readUVLayout(input);
         UVLayout right = readUVLayout(input);
         return new UVLayouts.Layer(left, right);
     }
 
-    private UVLayout readUVLayout(CraftInputStream input) throws IOException {
+    static UVLayout readUVLayout(CraftInputStream input) throws IOException {
         int count = input.readVarInt();
         if (count < 0 || count > UVDirection.values().length) {
             // There are only UVDirection.values().length valid directions, so any
@@ -131,7 +132,7 @@ public class ModSyncPacketV5 implements ModSyncPacket {
         return new UVLayout(quads);
     }
 
-    private void writeUVLayouts(UVLayouts layouts, CraftOutputStream output) throws IOException {
+    static void writeUVLayouts(UVLayouts layouts, CraftOutputStream output) throws IOException {
         if (layouts == null) {
             // Write empty layouts if null
             writeLayer(null, output);
@@ -142,7 +143,7 @@ public class ModSyncPacketV5 implements ModSyncPacket {
         writeLayer(layouts.overlay(), output);
     }
 
-    private void writeLayer(UVLayouts.Layer layer, CraftOutputStream output) throws IOException {
+    static void writeLayer(UVLayouts.Layer layer, CraftOutputStream output) throws IOException {
         if (layer == null) {
             writeUVLayout(null, output);
             writeUVLayout(null, output);
@@ -152,7 +153,7 @@ public class ModSyncPacketV5 implements ModSyncPacket {
         writeUVLayout(layer.right(), output);
     }
 
-    private void writeUVLayout(UVLayout layout, CraftOutputStream output) throws IOException {
+    static void writeUVLayout(UVLayout layout, CraftOutputStream output) throws IOException {
         if (layout == null || layout.getQuads() == null) {
             output.writeVarInt(0);
             return;
