@@ -1,6 +1,6 @@
 package dbrighthd.wildfiregendermodplugin;
 
-import dbrighthd.wildfiregendermodplugin.commands.DiagnosticCommand;
+import dbrighthd.wildfiregendermodplugin.listeners.ConfigHandshakeListener;
 import dbrighthd.wildfiregendermodplugin.listeners.ConnectionListener;
 import dbrighthd.wildfiregendermodplugin.listeners.HelloPacketListener;
 import dbrighthd.wildfiregendermodplugin.listeners.ModPayloadListener;
@@ -33,17 +33,16 @@ public final class GenderModPlugin extends JavaPlugin {
             return;
         }
 
+        if (networkManager.getProtocolVersion() >= 6 && !ConfigHandshakeListener.isSupported()) {
+            customLogger.severe("Protocol %d (mod 5.0.0-Beta.5 and newer) needs a Paper server (or a fork of Paper), "
+                    + "Spigot can't do the handshake the mod requires. DISABLING SELF.",
+                    networkManager.getProtocolVersion());
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+
         registerEventListeners();
         registerModListeners();
-
-        DiagnosticCommand diagCmd = new DiagnosticCommand(this);
-        var cmd = getCommand("femalegender");
-        if (cmd != null) {
-            cmd.setExecutor(diagCmd);
-            cmd.setTabCompleter(diagCmd);
-        } else {
-            customLogger.warning("Could not register /femalegender command - check plugin.yml");
-        }
     }
 
     @Override
@@ -70,18 +69,20 @@ public final class GenderModPlugin extends JavaPlugin {
 
     private void registerModListeners() {
         ModPayloadListener payloadListener = new ModPayloadListener(this);
+        for (String channel : networkManager.getIncomingSyncChannels())
+            getServer().getMessenger().registerIncomingPluginChannel(this, channel, payloadListener);
+        for (String channel : networkManager.getOutgoingSyncChannels())
+            getServer().getMessenger().registerOutgoingPluginChannel(this, channel);
 
-        // Fabric
-        getServer().getMessenger().registerIncomingPluginChannel(this, ModConstants.SEND_GENDER_INFO, payloadListener);
-        getServer().getMessenger().registerOutgoingPluginChannel(this, ModConstants.SYNC);
-
-        // Forge
-        getServer().getMessenger().registerIncomingPluginChannel(this, ModConstants.FORGE, payloadListener);
-        getServer().getMessenger().registerOutgoingPluginChannel(this, ModConstants.FORGE);
-
-        // Hello handshake (5.0.0+)
-        HelloPacketListener helloListener = new HelloPacketListener(this);
-        getServer().getMessenger().registerIncomingPluginChannel(this, ModConstants.HELLO_SERVERBOUND, helloListener);
-        getServer().getMessenger().registerOutgoingPluginChannel(this, ModConstants.HELLO_CLIENTBOUND);
+        int protocol = networkManager.getProtocolVersion();
+        if (protocol == 5) {
+            // Play-phase hello handshake (5.0.0-Beta.1 to Beta.4)
+            HelloPacketListener helloListener = new HelloPacketListener(this);
+            getServer().getMessenger().registerIncomingPluginChannel(this, ModConstants.HELLO_SERVERBOUND, helloListener);
+            getServer().getMessenger().registerOutgoingPluginChannel(this, ModConstants.HELLO_CLIENTBOUND);
+        } else if (protocol >= 6) {
+            // Configuration-phase hello handshake (5.0.0-Beta.5 and newer)
+            ConfigHandshakeListener.register(this);
+        }
     }
 }

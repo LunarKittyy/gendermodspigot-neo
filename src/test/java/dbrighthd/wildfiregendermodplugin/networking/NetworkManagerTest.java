@@ -3,27 +3,23 @@ package dbrighthd.wildfiregendermodplugin.networking;
 import dbrighthd.wildfiregendermodplugin.GenderModPlugin;
 import dbrighthd.wildfiregendermodplugin.logging.CustomPluginLogger;
 import dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream;
-import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacket;
-import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV2;
-import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV3;
+import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV5;
+import dbrighthd.wildfiregendermodplugin.networking.wildfire.ModSyncPacketV6;
+import dbrighthd.wildfiregendermodplugin.wildfire.ModConstants;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
 import dbrighthd.wildfiregendermodplugin.wildfire.UserManager;
-import dbrighthd.wildfiregendermodplugin.wildfire.setup.BreastOptions;
-import dbrighthd.wildfiregendermodplugin.wildfire.setup.GeneralOptions;
-import dbrighthd.wildfiregendermodplugin.wildfire.setup.GenderIdentities;
-import dbrighthd.wildfiregendermodplugin.wildfire.setup.ModConfiguration;
-import dbrighthd.wildfiregendermodplugin.wildfire.setup.PhysicsOptions;
-import dbrighthd.wildfiregendermodplugin.wildfire.setup.UVLayouts;
+import dbrighthd.wildfiregendermodplugin.wildfire.setup.*;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
@@ -33,160 +29,135 @@ import static org.mockito.Mockito.*;
  */
 public class NetworkManagerTest {
     private GenderModPlugin plugin;
-    private CustomPluginLogger logger;
     private UserManager userManager;
-    private NetworkManager networkManager;
 
-    @BeforeEach
-    public void setUp() {
+    private NetworkManager create(int protocol) {
         plugin = mock(GenderModPlugin.class);
-        logger = mock(CustomPluginLogger.class);
         userManager = new UserManager();
         FileConfiguration config = mock(FileConfiguration.class);
 
         when(plugin.getConfig()).thenReturn(config);
-        when(plugin.getCustomLogger()).thenReturn(logger);
+        when(plugin.getCustomLogger()).thenReturn(mock(CustomPluginLogger.class));
         when(plugin.getUserManager()).thenReturn(userManager);
-        // Force a known default protocol (5) rather than exercising auto-detection here.
-        when(config.getInt("mod.protocol", -1)).thenReturn(5);
+        when(config.getInt("mod.protocol", -1)).thenReturn(protocol);
 
-        networkManager = new NetworkManager(plugin);
+        NetworkManager networkManager = new NetworkManager(plugin);
         assertTrue(networkManager.init(), "init() should succeed for a valid configured protocol");
+        return networkManager;
+    }
+
+    private static Player player(UUID uuid) {
+        Player player = mock(Player.class);
+        when(player.getUniqueId()).thenReturn(uuid);
+        when(player.getName()).thenReturn("player-" + uuid);
+        return player;
+    }
+
+    private static ModConfiguration female() {
+        return new ModConfiguration(
+                new GeneralOptions.Builder().setGenderIdentity(GenderIdentities.FEMALE).create(),
+                new PhysicsOptions.Builder().create(),
+                new BreastOptions.Builder().create(),
+                UVLayouts.defaultLayouts());
     }
 
     @Test
-    public void testGetPacketFormatForPlayerUsesDefaultWhenUnknown() {
-        UUID uuid = UUID.randomUUID();
-        ModSyncPacket format = networkManager.getPacketFormatForPlayer(uuid);
-        assertEquals(5, format.getVersion());
+    public void testInitRejectsUnknownProtocol() {
+        plugin = mock(GenderModPlugin.class);
+        FileConfiguration config = mock(FileConfiguration.class);
+        when(plugin.getConfig()).thenReturn(config);
+        when(plugin.getCustomLogger()).thenReturn(mock(CustomPluginLogger.class));
+        when(config.getInt("mod.protocol", -1)).thenReturn(7);
+
+        assertFalse(new NetworkManager(plugin).init());
     }
 
     @Test
-    public void testGetPacketFormatForPlayerUsesTrackedVersion() {
-        UUID uuid = UUID.randomUUID();
-        userManager.setProtocolVersion(uuid, 3);
-
-        ModSyncPacket format = networkManager.getPacketFormatForPlayer(uuid);
-        assertEquals(3, format.getVersion());
+    public void testV6UsesNewChannels() {
+        NetworkManager networkManager = create(6);
+        assertArrayEquals(new String[] { ModConstants.V6_SYNC_SERVERBOUND }, networkManager.getIncomingSyncChannels());
+        assertArrayEquals(new String[] { ModConstants.V6_SYNC_CLIENTBOUND }, networkManager.getOutgoingSyncChannels());
     }
 
     @Test
-    public void testGetPacketFormatForPlayerFallsBackOnUnsupportedTrackedVersion() {
-        UUID uuid = UUID.randomUUID();
-        userManager.setProtocolVersion(uuid, 42);
-
-        ModSyncPacket format = networkManager.getPacketFormatForPlayer(uuid);
-        assertEquals(5, format.getVersion(), "Unsupported tracked protocol must fall back to the default");
-        verify(logger).warning(anyString(), eq(42), eq(uuid), eq(5));
+    public void testV5UsesLegacyChannels() {
+        NetworkManager networkManager = create(5);
+        assertArrayEquals(new String[] { ModConstants.SEND_GENDER_INFO, ModConstants.FORGE },
+                networkManager.getIncomingSyncChannels());
+        assertArrayEquals(new String[] { ModConstants.SYNC, ModConstants.FORGE },
+                networkManager.getOutgoingSyncChannels());
     }
 
-    /**
-     * A valid-length payload whose embedded UUID matches the sender should have
-     * its protocol auto-detected and committed for future lookups. Protocol 3 is
-     * used here since a real ModSyncPacketV3 write() output is exactly the 49
-     * bytes NetworkManager.detectProtocolFromLength maps to protocol 3.
-     */
     @Test
-    public void testDeserializeUserAutoDetectsAndCommitsProtocolOnUuidMatch() throws IOException {
+    public void testV6PayloadBelongsToSender() throws IOException {
+        NetworkManager networkManager = create(6);
         UUID senderId = UUID.randomUUID();
-        Player sender = mock(Player.class);
-        when(sender.getUniqueId()).thenReturn(senderId);
-        when(sender.getName()).thenReturn("Tester");
 
-        byte[] v3Data = buildV3Packet(senderId);
-        assertEquals(49, v3Data.length, "sanity check: must match detectProtocolFromLength's V3 case");
-        assertEquals(-1, userManager.getProtocolVersion(senderId));
+        byte[] data;
+        try (ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                CraftOutputStream out = new CraftOutputStream(bytes)) {
+            ModSyncPacketV6.writeConfiguration(female(), out);
+            data = bytes.toByteArray();
+        }
 
-        ModUser user = networkManager.deserializeUser(v3Data, false, sender);
-
+        ModUser user = networkManager.deserializeUser(data, false, player(senderId));
         assertNotNull(user);
         assertEquals(senderId, user.userId());
-        assertEquals(3, userManager.getProtocolVersion(senderId),
-                "A validated payload (UUID matches sender) must commit the detected protocol");
-    }
-
-    /**
-     * Regression: a length-plausible payload whose embedded UUID does NOT match
-     * the sender must never have its protocol silently trusted/committed, even
-     * if a lower-protocol fallback parse of the raw bytes happens to succeed.
-     */
-    @Test
-    public void testDeserializeUserDoesNotCommitProtocolOnUuidMismatch() throws IOException {
-        UUID senderId = UUID.randomUUID();
-        UUID otherPlayerId = UUID.randomUUID();
-        Player sender = mock(Player.class);
-        when(sender.getUniqueId()).thenReturn(senderId);
-        when(sender.getName()).thenReturn("Tester");
-
-        byte[] v3Data = buildV3Packet(otherPlayerId);
-
-        networkManager.deserializeUser(v3Data, false, sender);
-
-        assertEquals(-1, userManager.getProtocolVersion(senderId),
-                "Sender's protocol must not be confirmed from a payload whose UUID doesn't match them");
+        assertEquals(GenderIdentities.FEMALE, user.configuration().generalOptions().genderIdentity());
     }
 
     @Test
-    public void testDeserializeUserDetectsV2UsingSerializerLength() throws IOException {
-        UUID senderId = UUID.randomUUID();
-        Player sender = mock(Player.class);
-        when(sender.getUniqueId()).thenReturn(senderId);
-        when(sender.getName()).thenReturn("Tester");
+    public void testTrailingDataIsRejected() throws IOException {
+        NetworkManager networkManager = create(6);
 
-        byte[] v2Data = buildPacket(senderId, new ModSyncPacketV2());
-        assertEquals(50, v2Data.length);
-
-        ModUser user = networkManager.deserializeUser(v2Data, false, sender);
-
-        assertNotNull(user);
-        assertEquals(2, userManager.getProtocolVersion(senderId));
-    }
-
-    @Test
-    public void testDetectionDoesNotCommitMalformedPayloadWithMatchingUuid() throws IOException {
-        UUID senderId = UUID.randomUUID();
-        Player sender = mock(Player.class);
-        when(sender.getUniqueId()).thenReturn(senderId);
-        when(sender.getName()).thenReturn("Tester");
-
-        byte[] malformed = buildV3Packet(senderId);
-        malformed[16] = 99; // Invalid GenderIdentities ordinal.
-
-        assertNull(networkManager.deserializeUser(malformed, false, sender));
-        assertEquals(-1, userManager.getProtocolVersion(senderId));
-    }
-
-    @Test
-    public void testSuccessfulFallbackUpdatesTrackedProtocol() throws IOException {
-        UUID senderId = UUID.randomUUID();
-        Player sender = mock(Player.class);
-        when(sender.getUniqueId()).thenReturn(senderId);
-        when(sender.getName()).thenReturn("Tester");
-        userManager.setProtocolVersion(senderId, 5);
-
-        ModUser user = networkManager.deserializeUser(buildV3Packet(senderId), false, sender);
-
-        assertNotNull(user);
-        assertEquals(3, userManager.getProtocolVersion(senderId),
-                "A successful authenticated fallback must be used for future outbound packets");
-    }
-
-    private byte[] buildV3Packet(UUID userId) throws IOException {
-        return buildPacket(userId, new ModSyncPacketV3());
-    }
-
-    private byte[] buildPacket(UUID userId, ModSyncPacket packet) throws IOException {
-        ModConfiguration config = new ModConfiguration(
-                new GeneralOptions(GenderIdentities.FEMALE, true, 1.0f, true),
-                new PhysicsOptions(true, false, 0.333f, 0.75f),
-                new BreastOptions(0.6f, 0.0f, 0.0f, 0.0f, true, 0.0f),
-                UVLayouts.defaultLayouts());
-        ModUser user = new ModUser(userId, config);
-
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        try (CraftOutputStream out = new CraftOutputStream(bytes)) {
-            packet.write(user, out);
+        byte[] data;
+        try (ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                CraftOutputStream out = new CraftOutputStream(bytes)) {
+            ModSyncPacketV6.writeConfiguration(female(), out);
+            out.writeByte(0x42);
+            data = bytes.toByteArray();
         }
-        return bytes.toByteArray();
+
+        assertNull(networkManager.deserializeUser(data, false, player(UUID.randomUUID())));
+    }
+
+    @Test
+    public void testV5PayloadKeepsEmbeddedUuid() throws IOException {
+        NetworkManager networkManager = create(5);
+        UUID embedded = UUID.randomUUID();
+
+        byte[] data;
+        try (ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                CraftOutputStream out = new CraftOutputStream(bytes)) {
+            new ModSyncPacketV5().write(new ModUser(embedded, female()), out);
+            data = bytes.toByteArray();
+        }
+
+        // The listener compares the embedded UUID to the sender, so it must not be replaced.
+        ModUser user = networkManager.deserializeUser(data, false, player(UUID.randomUUID()));
+        assertNotNull(user);
+        assertEquals(embedded, user.userId());
+    }
+
+    @Test
+    public void testV6SyncSkipsSelfAndUnreadyPlayers() {
+        NetworkManager networkManager = create(6);
+        UUID aliceId = UUID.randomUUID();
+        UUID bobId = UUID.randomUUID();
+        UUID carolId = UUID.randomUUID();
+        Player alice = player(aliceId);
+        Player bob = player(bobId);
+        Player carol = player(carolId);
+
+        userManager.getUsers().put(aliceId, new ModUser(aliceId, female()));
+        userManager.setProtocolReady(aliceId);
+        userManager.setProtocolReady(bobId);
+        // carol never finished the handshake
+
+        networkManager.sync(List.of(alice, bob, carol));
+
+        verify(alice, never()).sendPluginMessage(any(), anyString(), any());
+        verify(bob).sendPluginMessage(eq(plugin), eq(ModConstants.V6_SYNC_CLIENTBOUND), any());
+        verify(carol, never()).sendPluginMessage(any(), anyString(), any());
     }
 }

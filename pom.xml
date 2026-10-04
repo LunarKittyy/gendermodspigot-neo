@@ -7,7 +7,7 @@
 
     <groupId>dbrighthd</groupId>
     <artifactId>Female-Gender-Mod-Plugin</artifactId>
-    <version>1.6.0</version>
+    <version>1.7.0</version>
     <name>Female-Gender-Mod-Plugin</name>
 
     <properties>
@@ -38,16 +38,19 @@
 
     <repositories>
         <repository>
-            <id>spigot-repo</id>
-            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+            <id>papermc</id>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
     </repositories>
 
     <dependencies>
         <dependency>
-            <groupId>org.spigotmc</groupId>
-            <artifactId>spigot-api</artifactId>
-            <version>1.21.1-R0.1-SNAPSHOT</version>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+            <!-- Newest Paper API that still targets Java 21. The plugin itself only
+                 uses Paper classes on Paper servers, so it keeps loading on Spigot. -->
+            <version>1.21.11-R0.1-SNAPSHOT</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.jetbrains</groupId>

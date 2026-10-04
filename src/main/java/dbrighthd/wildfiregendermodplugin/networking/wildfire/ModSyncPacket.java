@@ -5,6 +5,7 @@ import dbrighthd.wildfiregendermodplugin.networking.minecraft.CraftOutputStream;
 import dbrighthd.wildfiregendermodplugin.wildfire.ModUser;
 
 import java.io.IOException;
+import java.util.UUID;
 
 /**
  * Network packet for sending and receiving a user's mod configuration.
@@ -34,6 +35,20 @@ public interface ModSyncPacket {
      * @throws IOException if an I/O error occurs in the supplied {@link CraftInputStream}
      */
     ModUser read(CraftInputStream input) throws IOException;
+
+    /**
+     * Decodes a payload a client sent about itself. Formats that embed the user's
+     * {@link UUID} in serverbound payloads read it from the stream (and the caller
+     * must check it against {@code senderId}); formats that don't use {@code senderId}.
+     *
+     * @param senderId The player that sent the payload.
+     * @param input    The input stream to read data from.
+     * @return the {@link ModUser} value read.
+     * @throws IOException if an I/O error occurs in the supplied {@link CraftInputStream}
+     */
+    default ModUser readFromClient(UUID senderId, CraftInputStream input) throws IOException {
+        return read(input);
+    }
 
     /**
      * Encodes modConfiguration from a {@link ModUser} with a {@link CraftOutputStream}

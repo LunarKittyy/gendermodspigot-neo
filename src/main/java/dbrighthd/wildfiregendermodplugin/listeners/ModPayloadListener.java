@@ -21,7 +21,8 @@ public class ModPayloadListener implements PluginMessageListener {
 
     @Override
     public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, byte[] message) {
-        if (!channel.equals(ModConstants.SEND_GENDER_INFO) && !channel.equals(ModConstants.FORGE))
+        if (!channel.equals(ModConstants.SEND_GENDER_INFO) && !channel.equals(ModConstants.FORGE)
+                && !channel.equals(ModConstants.V6_SYNC_SERVERBOUND))
             return;
 
         ModUser user = plugin.getNetworkManager().deserializeUser(message, channel.equals(ModConstants.FORGE), player);
@@ -40,10 +41,10 @@ public class ModPayloadListener implements PluginMessageListener {
         plugin.getCustomLogger().debug("Stored %s as %s",
                 player.getName(), user.configuration().generalOptions().genderIdentity().name());
 
-        // Mark this player ready to receive sync packets now that their protocol
-        // is confirmed. For V4/older clients this is the first confirmation;
-        // for V5 clients this is a no-op (already marked ready by HelloPacketListener).
-        plugin.getUserManager().setProtocolReady(player.getUniqueId());
+        // Protocols 2-4 have no handshake, so a parsed payload is the confirmation.
+        // Protocols 5 and 6 confirm through their hello instead.
+        if (plugin.getNetworkManager().getProtocolVersion() < 5)
+            plugin.getUserManager().setProtocolReady(player.getUniqueId());
 
         // Sync all stored users (including this player's just-updated data) to
         // every ready online player. This also provides the sender's deferred
